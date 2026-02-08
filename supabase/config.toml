@@ -1,0 +1,4 @@
+project_id = "vwdxqtopxklebnszxrpu"
+
+[functions.extract-criterios]
+verify_jwt = false
