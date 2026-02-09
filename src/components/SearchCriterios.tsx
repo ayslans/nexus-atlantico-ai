@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { Search, Filter, ArrowLeft, Copy, CheckCircle, X } from 'lucide-react';
+import { useState, useMemo, useCallback } from 'react';
+import { Search, Filter, ArrowLeft, Copy, CheckCircle, X, Download, FileSpreadsheet, FileDown } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 
 interface Criterio {
@@ -99,6 +105,62 @@ export function SearchCriterios({ editais, criterios, onBack }: SearchCriteriosP
 
   const completedEditais = editais.filter((e) => e.status === 'concluido');
 
+  const exportCSV = useCallback(() => {
+    if (filtered.length === 0) return;
+    const headers = ['Edital', 'Seção', 'Título', 'Conteúdo'];
+    const rows = filtered.map((c) => [
+      editalMap[c.edital_id]?.nome || '',
+      c.secao || '',
+      c.titulo || `Critério ${c.ordem}`,
+      c.conteudo.replace(/"/g, '""'),
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(',')).join('\n');
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `criterios_${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast({ title: `${filtered.length} critérios exportados para CSV` });
+  }, [filtered, editalMap, toast]);
+
+  const exportPDF = useCallback(async () => {
+    if (filtered.length === 0) return;
+    const { default: jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
+    const doc = new jsPDF({ orientation: 'landscape' });
+
+    doc.setFontSize(16);
+    doc.text('Critérios Extraídos', 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Exportado em ${new Date().toLocaleDateString('pt-BR')} — ${filtered.length} critérios`, 14, 22);
+
+    const rows = filtered.map((c) => [
+      editalMap[c.edital_id]?.nome || '',
+      c.secao || '',
+      c.titulo || `Critério ${c.ordem}`,
+      c.conteudo.substring(0, 300) + (c.conteudo.length > 300 ? '...' : ''),
+    ]);
+
+    (doc as any).autoTable({
+      head: [['Edital', 'Seção', 'Título', 'Conteúdo']],
+      body: rows,
+      startY: 28,
+      styles: { fontSize: 8, cellPadding: 3 },
+      headStyles: { fillColor: [59, 130, 246] },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 50 },
+        3: { cellWidth: 'auto' },
+      },
+    });
+
+    doc.save(`criterios_${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast({ title: `${filtered.length} critérios exportados para PDF` });
+  }, [filtered, editalMap, toast]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -106,6 +168,24 @@ export function SearchCriterios({ editais, criterios, onBack }: SearchCriteriosP
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" className="gap-2" disabled={filtered.length === 0}>
+              <Download className="w-4 h-4" />
+              Exportar
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={exportCSV} className="gap-2">
+              <FileSpreadsheet className="w-4 h-4" />
+              Exportar CSV
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={exportPDF} className="gap-2">
+              <FileDown className="w-4 h-4" />
+              Exportar PDF
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
