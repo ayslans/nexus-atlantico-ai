@@ -36,9 +36,26 @@ serve(async (req) => {
 
     const { editalId, pdfContent } = await req.json();
 
-    if (!editalId || !pdfContent) {
+    // Validate UUID format
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!editalId || !uuidRegex.test(editalId)) {
       return new Response(
-        JSON.stringify({ error: 'editalId and pdfContent are required' }),
+        JSON.stringify({ error: 'Invalid or missing editalId' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate PDF content
+    if (!pdfContent || typeof pdfContent !== 'string' || pdfContent.length < 100) {
+      return new Response(
+        JSON.stringify({ error: 'PDF content is too short or empty' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (pdfContent.length > 500000) {
+      return new Response(
+        JSON.stringify({ error: 'PDF content exceeds maximum allowed size' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

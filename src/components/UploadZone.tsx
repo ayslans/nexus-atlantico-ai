@@ -75,7 +75,7 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
           },
           body: JSON.stringify({
             editalId: edital.id,
-            pdfContent: pdfText.substring(0, 100000), // Limit content size
+            pdfContent: pdfText.substring(0, 400000), // Limit to ~100k tokens
           }),
         }
       );
