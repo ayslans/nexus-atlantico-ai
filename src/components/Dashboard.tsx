@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { FileSearch, LogOut, Plus, FileText } from 'lucide-react';
+import { FileSearch, LogOut, Plus, FileText, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UploadZone } from './UploadZone';
 import { EditalCard } from './EditalCard';
 import { CriteriosList } from './CriteriosList';
+import { SearchCriterios } from './SearchCriterios';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +54,7 @@ export function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
   const [editalToDelete, setEditalToDelete] = useState<Edital | null>(null);
 
   const fetchEditais = async () => {
@@ -145,6 +147,20 @@ export function Dashboard() {
     }
   };
 
+  if (showSearch) {
+    return (
+      <div className="min-h-screen gradient-hero">
+        <div className="container max-w-4xl py-8 px-4">
+          <SearchCriterios
+            editais={editais}
+            criterios={criterios}
+            onBack={() => setShowSearch(false)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (selectedEdital) {
     return (
       <div className="min-h-screen gradient-hero">
@@ -193,20 +209,31 @@ export function Dashboard() {
             </p>
           </div>
           
-          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="gap-2">
-                <Plus className="w-4 h-4" />
-                Novo Edital
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-lg">
-              <DialogHeader>
-                <DialogTitle>Enviar Novo Edital</DialogTitle>
-              </DialogHeader>
-              <UploadZone onUploadComplete={handleUploadComplete} />
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setShowSearch(true)}
+              disabled={editais.length === 0}
+            >
+              <Search className="w-4 h-4" />
+              <span className="hidden sm:inline">Buscar</span>
+            </Button>
+            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="gap-2">
+                  <Plus className="w-4 h-4" />
+                  Novo Edital
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Enviar Novo Edital</DialogTitle>
+                </DialogHeader>
+                <UploadZone onUploadComplete={handleUploadComplete} />
+              </DialogContent>
+            </Dialog>
+          </div>
         </div>
 
         {loading ? (
