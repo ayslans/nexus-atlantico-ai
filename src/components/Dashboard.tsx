@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
-import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows } from 'lucide-react';
+import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UploadZone } from './UploadZone';
 import { EditalCard } from './EditalCard';
 import { CriteriosList } from './CriteriosList';
 import { SearchCriterios } from './SearchCriterios';
 import { CompareEditais } from './CompareEditais';
+import { AnalisePersonas } from './AnalisePersonas';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -57,6 +58,7 @@ export function Dashboard() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
+  const [analyzeEdital, setAnalyzeEdital] = useState<Edital | null>(null);
   const [editalToDelete, setEditalToDelete] = useState<Edital | null>(null);
 
   const fetchEditais = async () => {
@@ -148,6 +150,20 @@ export function Dashboard() {
       setEditalToDelete(null);
     }
   };
+
+  if (analyzeEdital) {
+    return (
+      <div className="min-h-screen gradient-hero">
+        <div className="container max-w-4xl py-8 px-4">
+          <AnalisePersonas
+            edital={analyzeEdital}
+            criterios={criterios[analyzeEdital.id] || []}
+            onBack={() => setAnalyzeEdital(null)}
+          />
+        </div>
+      </div>
+    );
+  }
 
   if (showCompare) {
     return (
@@ -287,6 +303,7 @@ export function Dashboard() {
                 edital={edital}
                 criteriosCount={criterios[edital.id]?.length || 0}
                 onSelect={() => setSelectedEdital(edital)}
+                onAnalyze={() => setAnalyzeEdital(edital)}
                 onDelete={() => {
                   setEditalToDelete(edital);
                   setDeleteDialogOpen(true);
