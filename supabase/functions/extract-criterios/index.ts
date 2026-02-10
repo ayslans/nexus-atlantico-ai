@@ -6,6 +6,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
+// Call Google Gemini API
+async function callGemini(systemPrompt: string, userContent: string, geminiKey: string) {
+  console.log('Calling Google Gemini API...');
+  try {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: systemPrompt + '\n\n' + userContent }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.3,
+        }
+      }),
+    });
+
+    if (geminiResponse.ok) {
+      const data = await geminiResponse.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      return { success: true, content };
+    } else {
+      const error = await geminiResponse.text();
+      console.error('Gemini error:', geminiResponse.status, error);
+      return { success: false, content: null };
+    }
+  } catch (error) {
+    console.error('Gemini call failed:', error);
+    return { success: false, content: null };
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -15,12 +54,12 @@ serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
 
-    if (!LOVABLE_API_KEY) {
-      console.error('LOVABLE_API_KEY not configured');
+    if (!GEMINI_API_KEY) {
+      console.error('GEMINI_API_KEY not configured');
       return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
+        JSON.stringify({ error: 'AI service not configured. Please set GEMINI_API_KEY.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -113,49 +152,12 @@ Se não encontrar critérios de seleção, retorne: { "criterios": [] }`;
 
     console.log('Calling AI for criteria extraction...');
     
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-pro',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Analise o seguinte edital e extraia todos os critérios de seleção:\n\n${pdfContent}` }
-        ],
-        response_format: { type: 'json_object' },
-      }),
-    });
+    const userContent = `Analise o seguinte edital e extraia todos os critérios de seleção:\n\n${pdfContent}`;
+    
+    const aiResult = await callGemini(systemPrompt, userContent, GEMINI_API_KEY);
 
-    if (!aiResponse.ok) {
-      const errorText = await aiResponse.text();
-      console.error('AI gateway error:', aiResponse.status, errorText);
-      
-      // Handle rate limits
-      if (aiResponse.status === 429) {
-        await supabaseAdmin
-          .from('editais')
-          .update({ status: 'erro', erro_mensagem: 'Limite de requisições excedido. Tente novamente em alguns minutos.' })
-          .eq('id', editalId);
-        return new Response(
-          JSON.stringify({ error: 'Rate limit exceeded, please try again later' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      if (aiResponse.status === 402) {
-        await supabaseAdmin
-          .from('editais')
-          .update({ status: 'erro', erro_mensagem: 'Créditos de IA insuficientes.' })
-          .eq('id', editalId);
-        return new Response(
-          JSON.stringify({ error: 'Payment required, please add credits' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
+    if (!aiResult.success) {
+      console.error('AI processing failed');
       await supabaseAdmin
         .from('editais')
         .update({ status: 'erro', erro_mensagem: 'Erro ao processar com IA' })
@@ -167,10 +169,7 @@ Se não encontrar critérios de seleção, retorne: { "criterios": [] }`;
       );
     }
 
-    const aiData = await aiResponse.json();
-    console.log('AI response received');
-
-    const content = aiData.choices?.[0]?.message?.content;
+    const content = aiResult.content;
     if (!content) {
       console.error('No content in AI response');
       await supabaseAdmin

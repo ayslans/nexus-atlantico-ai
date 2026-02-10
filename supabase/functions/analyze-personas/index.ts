@@ -37,16 +37,56 @@ Responda em formato markdown estruturado com as seções acima. Seja preciso com
   }
 };
 
+// Call Google Gemini API
+async function callGemini(systemPrompt: string, userContent: string, geminiKey: string) {
+  console.log('Calling Google Gemini API...');
+  try {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [
+              { text: systemPrompt + '\n\n' + userContent }
+            ]
+          }
+        ],
+        generationConfig: {
+          temperature: 0.7,
+        }
+      }),
+    });
+
+    if (geminiResponse.ok) {
+      const data = await geminiResponse.json();
+      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      return { success: true, content };
+    } else {
+      const error = await geminiResponse.text();
+      console.error('Gemini error:', geminiResponse.status, error);
+      return { success: false, content: null };
+    }
+  } catch (error) {
+    console.error('Gemini call failed:', error);
+    return { success: false, content: null };
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
-    if (!LOVABLE_API_KEY) {
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    
+    if (!GEMINI_API_KEY) {
       return new Response(
-        JSON.stringify({ error: 'AI service not configured' }),
+        JSON.stringify({ error: 'AI service not configured. Please set GEMINI_API_KEY.' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -71,47 +111,18 @@ serve(async (req) => {
 
     console.log(`Analyzing with persona: ${selectedPersona.name} for edital: ${editalNome}`);
 
-    const aiResponse = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'google/gemini-2.5-flash',
-        messages: [
-          { role: 'system', content: selectedPersona.prompt },
-          {
-            role: 'user',
-            content: `Analise os seguintes critérios extraídos do edital "${editalNome}":\n\n${criteriosText}`
-          }
-        ],
-      }),
-    });
+    const userContent = `Analise os seguintes critérios extraídos do edital "${editalNome}":\n\n${criteriosText}`;
+    
+    const aiResult = await callGemini(selectedPersona.prompt, userContent, GEMINI_API_KEY);
 
-    if (!aiResponse.ok) {
-      if (aiResponse.status === 429) {
-        return new Response(
-          JSON.stringify({ error: 'Limite de requisições excedido. Tente novamente em alguns minutos.' }),
-          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      if (aiResponse.status === 402) {
-        return new Response(
-          JSON.stringify({ error: 'Créditos de IA insuficientes.' }),
-          { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      const errorText = await aiResponse.text();
-      console.error('AI error:', aiResponse.status, errorText);
+    if (!aiResult.success) {
       return new Response(
         JSON.stringify({ error: 'Erro ao processar análise com IA' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const aiData = await aiResponse.json();
-    const content = aiData.choices?.[0]?.message?.content;
+    const content = aiResult.content;
 
     if (!content) {
       return new Response(
