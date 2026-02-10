@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { FileSearch, LogOut, Plus, FileText, Search } from 'lucide-react';
+import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UploadZone } from './UploadZone';
 import { EditalCard } from './EditalCard';
 import { CriteriosList } from './CriteriosList';
 import { SearchCriterios } from './SearchCriterios';
+import { CompareEditais } from './CompareEditais';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -55,6 +56,7 @@ export function Dashboard() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
   const [editalToDelete, setEditalToDelete] = useState<Edital | null>(null);
 
   const fetchEditais = async () => {
@@ -147,6 +149,20 @@ export function Dashboard() {
     }
   };
 
+  if (showCompare) {
+    return (
+      <div className="min-h-screen gradient-hero">
+        <div className="container max-w-6xl py-8 px-4">
+          <CompareEditais
+            editais={editais}
+            criterios={criterios}
+            onBack={() => setShowCompare(false)}
+          />
+        </div>
+      </div>
+    );
+  }
+
   if (showSearch) {
     return (
       <div className="min-h-screen gradient-hero">
@@ -210,6 +226,15 @@ export function Dashboard() {
           </div>
           
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setShowCompare(true)}
+              disabled={editais.filter(e => e.status === 'concluido').length < 2}
+            >
+              <GitCompareArrows className="w-4 h-4" />
+              <span className="hidden sm:inline">Comparar</span>
+            </Button>
             <Button
               variant="outline"
               className="gap-2"
