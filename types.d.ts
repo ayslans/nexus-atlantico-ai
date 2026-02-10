@@ -1,0 +1,10 @@
+/// <reference types="https://deno.land/x/types/index.d.ts" />
+/// <reference lib="deno.window" />
+
+declare global {
+  namespace Deno {
+    function env: {
+      get(key: string): string | undefined;
+    };
+  }
+}

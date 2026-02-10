@@ -1,0 +1,23 @@
+{
+  "tasks": {
+    "start": "supabase start",
+    "stop": "supabase stop",
+    "reset": "supabase db reset",
+    "functions-deploy": "supabase functions deploy",
+    "functions-logs": "supabase functions logs"
+  },
+  "compilerOptions": {
+    "lib": [
+      "deno.window",
+      "deno.unstable"
+    ],
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "strict": false,
+    "skipLibCheck": true,
+    "noImplicitAny": false,
+    "types": [
+      "./types.d.ts"
+    ]
+  }
+}
