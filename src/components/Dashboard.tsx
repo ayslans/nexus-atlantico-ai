@@ -3,6 +3,7 @@ import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows, Brain } f
 import { Button } from '@/components/ui/button';
 import { UploadZone } from './UploadZone';
 import { EditalCard } from './EditalCard';
+import { extractTextFromPDF } from '@/lib/pdfParser';
 import { CriteriosList } from './CriteriosList';
 import { SearchCriterios } from './SearchCriterios';
 import { CompareEditais } from './CompareEditais';
@@ -148,6 +149,59 @@ export function Dashboard() {
     } finally {
       setDeleteDialogOpen(false);
       setEditalToDelete(null);
+    }
+  };
+
+  const handleReprocess = async (edital: Edital) => {
+    try {
+      toast({ title: 'Reprocessando...', description: `Baixando e reprocessando "${edital.nome}"` });
+
+      // Download the PDF from storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from('editais')
+        .download(edital.arquivo_path);
+
+      if (downloadError || !fileData) throw new Error('Erro ao baixar o arquivo');
+
+      // Extract text from the downloaded PDF
+      const file = new File([fileData], edital.arquivo_nome, { type: 'application/pdf' });
+      const pdfText = await extractTextFromPDF(file);
+
+      // Delete existing criterios for this edital
+      await supabase.from('criterios').delete().eq('edital_id', edital.id);
+
+      // Update status to processing
+      await supabase.from('editais').update({ status: 'processando', erro_mensagem: null }).eq('id', edital.id);
+      fetchEditais();
+
+      // Call edge function
+      const { data: session } = await supabase.auth.getSession();
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-criterios`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            editalId: edital.id,
+            pdfContent: pdfText.substring(0, 400000),
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao reprocessar');
+      }
+
+      const result = await response.json();
+      toast({ title: 'Reprocessado com sucesso!', description: `${result.criteriosCount} critérios encontrados.` });
+      fetchEditais();
+    } catch (error: any) {
+      toast({ title: 'Erro ao reprocessar', description: error.message, variant: 'destructive' });
+      fetchEditais();
     }
   };
 
@@ -304,6 +358,7 @@ export function Dashboard() {
                 criteriosCount={criterios[edital.id]?.length || 0}
                 onSelect={() => setSelectedEdital(edital)}
                 onAnalyze={() => setAnalyzeEdital(edital)}
+                onReprocess={() => handleReprocess(edital)}
                 onDelete={() => {
                   setEditalToDelete(edital);
                   setDeleteDialogOpen(true);
