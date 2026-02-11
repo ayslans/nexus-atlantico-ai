@@ -1,4 +1,4 @@
-import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain } from 'lucide-react';
+import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain, RotateCcw } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +20,7 @@ interface EditalCardProps {
   onSelect: () => void;
   onDelete: () => void;
   onAnalyze?: () => void;
+  onReprocess?: () => void;
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof Clock; variant: 'default' | 'secondary' | 'destructive'; iconClass?: string }> = {
@@ -46,7 +47,7 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; variant:
   },
 };
 
-export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnalyze }: EditalCardProps) {
+export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnalyze, onReprocess }: EditalCardProps) {
   const config = statusConfig[edital.status];
   const StatusIcon = config.icon;
 
@@ -87,6 +88,20 @@ export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnaly
               </div>
               
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {edital.status === 'erro' && onReprocess && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReprocess();
+                    }}
+                    title="Reprocessar"
+                  >
+                    <RotateCcw className="w-4 h-4 text-amber-500" />
+                  </Button>
+                )}
                 {edital.status === 'concluido' && onAnalyze && (
                   <Button
                     variant="ghost"
