@@ -41,7 +41,7 @@ Responda em formato markdown estruturado com as seções acima. Seja preciso com
 async function callGemini(systemPrompt: string, userContent: string, geminiKey: string) {
   console.log('Calling Google Gemini API...');
   try {
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`, {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
