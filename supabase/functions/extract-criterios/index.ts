@@ -184,9 +184,34 @@ Se não encontrar critérios de seleção, retorne: { "criterios": [] }`;
 
     let parsedCriterios;
     try {
-      parsedCriterios = JSON.parse(content);
+      // Strip markdown code blocks and find JSON
+      let cleaned = content
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+
+      const jsonStart = cleaned.indexOf('{');
+      const jsonEnd = cleaned.lastIndexOf('}');
+
+      if (jsonStart === -1 || jsonEnd === -1) {
+        throw new Error('No JSON object found in response');
+      }
+
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+      try {
+        parsedCriterios = JSON.parse(cleaned);
+      } catch {
+        // Fix trailing commas and control chars
+        cleaned = cleaned
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          .replace(/[\x00-\x1F\x7F]/g, '');
+        parsedCriterios = JSON.parse(cleaned);
+      }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
+      console.error('Raw content preview:', content.substring(0, 300));
       await supabaseAdmin
         .from('editais')
         .update({ status: 'erro', erro_mensagem: 'Falha ao interpretar resposta da IA' })
