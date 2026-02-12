@@ -201,23 +201,6 @@ export function Dashboard() {
         variant: 'destructive',
       });
       throw error;
-=======
-  const handleRename = async (edital: Edital, newName: string) => {
-    const { error } = await supabase
-      .from('editais')
-      .update({ nome: newName })
-      .eq('id', edital.id);
-
-    if (error) {
-      toast({ title: 'Erro ao renomear', description: error.message, variant: 'destructive' });
-      return;
-    }
-
-    toast({ title: 'Edital renomeado!' });
-    fetchEditais();
-  };
-
-  const handleRefreshCount = async (editalId: string) => {
     const { data, error } = await supabase
       .from('criterios')
       .select('id')
