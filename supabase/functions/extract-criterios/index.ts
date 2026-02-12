@@ -12,7 +12,7 @@ const corsHeaders = {
 async function callGemini(systemPrompt: string, userContent: string, geminiKey: string) {
   console.log('Calling Google Gemini API...');
   try {
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key=${geminiKey}`, {
+    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -66,14 +66,29 @@ serve(async (req) => {
       );
     }
 
-    // Get authorization header for user context
+    // Authenticate user
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'Authorization required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const userId = claimsData.claims.sub;
 
     const { editalId, pdfContent } = await req.json();
 
@@ -106,10 +121,10 @@ serve(async (req) => {
     // Create supabase client with service role for database operations
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Verify the edital exists and get its name
+    // Verify the edital exists and belongs to the authenticated user
     const { data: edital, error: editalError } = await supabaseAdmin
       .from('editais')
-      .select('id, nome')
+      .select('id, nome, user_id')
       .eq('id', editalId)
       .maybeSingle();
 
@@ -118,6 +133,13 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Edital not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (edital.user_id !== userId) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: You do not own this edital' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -186,9 +208,34 @@ Se não encontrar critérios de seleção, retorne: { "criterios": [] }`;
 
     let parsedCriterios;
     try {
-      parsedCriterios = JSON.parse(content);
+      // Strip markdown code blocks and find JSON
+      let cleaned = content
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*/g, '')
+        .trim();
+
+      const jsonStart = cleaned.indexOf('{');
+      const jsonEnd = cleaned.lastIndexOf('}');
+
+      if (jsonStart === -1 || jsonEnd === -1) {
+        throw new Error('No JSON object found in response');
+      }
+
+      cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+
+      try {
+        parsedCriterios = JSON.parse(cleaned);
+      } catch {
+        // Fix trailing commas and control chars
+        cleaned = cleaned
+          .replace(/,\s*}/g, '}')
+          .replace(/,\s*]/g, ']')
+          .replace(/[\x00-\x1F\x7F]/g, '');
+        parsedCriterios = JSON.parse(cleaned);
+      }
     } catch (parseError) {
       console.error('Failed to parse AI response:', parseError);
+      console.error('Raw content preview:', content.substring(0, 300));
       await supabaseAdmin
         .from('editais')
         .update({ status: 'erro', erro_mensagem: 'Falha ao interpretar resposta da IA' })
