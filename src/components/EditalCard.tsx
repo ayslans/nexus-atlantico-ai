@@ -1,13 +1,16 @@
-import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain } from 'lucide-react';
+import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain, Edit2, Check, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useState } from 'react';
 
 interface Edital {
   id: string;
   nome: string;
+  nome_customizado?: string;
   arquivo_nome: string;
   status: 'pendente' | 'processando' | 'concluido' | 'erro';
   erro_mensagem?: string;
@@ -20,6 +23,7 @@ interface EditalCardProps {
   onSelect: () => void;
   onDelete: () => void;
   onAnalyze?: () => void;
+  onRename?: (novoNome: string) => Promise<void>;
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof Clock; variant: 'default' | 'secondary' | 'destructive'; iconClass?: string }> = {
@@ -46,9 +50,37 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; variant:
   },
 };
 
-export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnalyze }: EditalCardProps) {
+export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnalyze, onRename }: EditalCardProps) {
   const config = statusConfig[edital.status];
   const StatusIcon = config.icon;
+  const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState(edital.nome_customizado || edital.nome);
+  const [isSaving, setIsSaving] = useState(false);
+
+  const displayName = edital.nome_customizado || edital.nome;
+
+  const handleSaveRename = async () => {
+    if (!onRename || editName.trim() === displayName) {
+      setIsEditing(false);
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      await onRename(editName.trim());
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Error renaming edital:', error);
+      setEditName(displayName);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleCancel = () => {
+    setEditName(displayName);
+    setIsEditing(false);
+  };
 
   return (
     <Card className="group hover:shadow-elevated transition-all duration-300 cursor-pointer" onClick={onSelect}>
@@ -60,23 +92,67 @@ export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnaly
           
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-medium truncate">{edital.nome}</h3>
-              <Badge variant={config.variant} className="flex-shrink-0">
-                <StatusIcon className={`w-3 h-3 mr-1 ${config.iconClass || ''}`} />
-                {config.label}
-              </Badge>
+              {isEditing ? (
+                <div className="flex-1 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                  <Input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    placeholder="Nome do edital"
+                    className="text-base font-medium"
+                    disabled={isSaving}
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleSaveRename();
+                      if (e.key === 'Escape') handleCancel();
+                    }}
+                  />
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSaveRename();
+                    }}
+                    disabled={isSaving}
+                  >
+                    <Check className="w-4 h-4 text-success" />
+                  </Button>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-6 w-6"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCancel();
+                    }}
+                    disabled={isSaving}
+                  >
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-medium truncate">{displayName}</h3>
+                    <p className="text-sm text-muted-foreground mt-1 truncate">
+                      {edital.arquivo_nome}
+                    </p>
+                  </div>
+                  <Badge variant={config.variant} className="flex-shrink-0">
+                    <StatusIcon className={`w-3 h-3 mr-1 ${config.iconClass || ''}`} />
+                    {config.label}
+                  </Badge>
+                </>
+              )}
             </div>
-            
-            <p className="text-sm text-muted-foreground mt-1 truncate">
-              {edital.arquivo_nome}
-            </p>
-            
+
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
                 <span>
-                  {formatDistanceToNow(new Date(edital.created_at), { 
-                    addSuffix: true, 
-                    locale: ptBR 
+                  {formatDistanceToNow(new Date(edital.created_at), {
+                    addSuffix: true,
+                    locale: ptBR,
                   })}
                 </span>
                 {edital.status === 'concluido' && (
@@ -85,7 +161,7 @@ export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnaly
                   </span>
                 )}
               </div>
-              
+
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 {edital.status === 'concluido' && onAnalyze && (
                   <Button
@@ -99,6 +175,20 @@ export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnaly
                     title="Analisar com IA"
                   >
                     <Brain className="w-4 h-4 text-primary" />
+                  </Button>
+                )}
+                {!isEditing && onRename && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditing(true);
+                    }}
+                    title="Renomear edital"
+                  >
+                    <Edit2 className="w-4 h-4 text-muted-foreground" />
                   </Button>
                 )}
                 <Button

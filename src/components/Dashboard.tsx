@@ -151,6 +151,32 @@ export function Dashboard() {
     }
   };
 
+  const handleRenameEdital = async (editalId: string, novoNome: string) => {
+    try {
+      const { error } = await supabase
+        .from('editais')
+        .update({ nome_customizado: novoNome })
+        .eq('id', editalId);
+
+      if (error) throw error;
+
+      setEditais(editais.map(e => 
+        e.id === editalId 
+          ? { ...e, nome_customizado: novoNome } 
+          : e
+      ));
+
+      toast({ title: 'Edital renomeado com sucesso!' });
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao renomear',
+        description: error.message,
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  };
+
   if (analyzeEdital) {
     return (
       <div className="min-h-screen gradient-hero">
@@ -201,6 +227,10 @@ export function Dashboard() {
             edital={selectedEdital}
             criterios={criterios[selectedEdital.id] || []}
             onBack={() => setSelectedEdital(null)}
+            onCriteriosUpdated={() => {
+              fetchEditais();
+              fetchCriterios([selectedEdital.id]);
+            }}
           />
         </div>
       </div>
@@ -308,6 +338,7 @@ export function Dashboard() {
                   setEditalToDelete(edital);
                   setDeleteDialogOpen(true);
                 }}
+                onRename={(novoNome) => handleRenameEdital(edital.id, novoNome)}
               />
             ))}
           </div>
