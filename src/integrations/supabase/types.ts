@@ -22,6 +22,7 @@ export type Database = {
           id: string
           ordem: number
           secao: string | null
+          tags: string[] | null
           titulo: string | null
         }
         Insert: {
@@ -31,6 +32,7 @@ export type Database = {
           id?: string
           ordem?: number
           secao?: string | null
+          tags?: string[] | null
           titulo?: string | null
         }
         Update: {
@@ -40,6 +42,7 @@ export type Database = {
           id?: string
           ordem?: number
           secao?: string | null
+          tags?: string[] | null
           titulo?: string | null
         }
         Relationships: [
@@ -87,6 +90,38 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      edital_arquivos: {
+        Row: {
+          arquivo_nome: string
+          arquivo_path: string
+          created_at: string
+          edital_id: string
+          id: string
+        }
+        Insert: {
+          arquivo_nome: string
+          arquivo_path: string
+          created_at?: string
+          edital_id: string
+          id?: string
+        }
+        Update: {
+          arquivo_nome?: string
+          arquivo_path?: string
+          created_at?: string
+          edital_id?: string
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "edital_arquivos_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "editais"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
