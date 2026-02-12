@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UploadZone } from './UploadZone';
@@ -46,6 +46,7 @@ interface Criterio {
   conteudo: string;
   secao: string | null;
   ordem: number;
+  tags?: string[];
 }
 
 export function Dashboard() {
@@ -53,14 +54,18 @@ export function Dashboard() {
   const { toast } = useToast();
   const [editais, setEditais] = useState<Edital[]>([]);
   const [criterios, setCriterios] = useState<Record<string, Criterio[]>>({});
+  const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
   const [selectedEdital, setSelectedEdital] = useState<Edital | null>(null);
   const [loading, setLoading] = useState(true);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [addFileDialogOpen, setAddFileDialogOpen] = useState(false);
+  const [addFileEdital, setAddFileEdital] = useState<Edital | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [showCompare, setShowCompare] = useState(false);
   const [analyzeEdital, setAnalyzeEdital] = useState<Edital | null>(null);
   const [editalToDelete, setEditalToDelete] = useState<Edital | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchEditais = async () => {
     if (!user) return;
@@ -95,11 +100,31 @@ export function Dashboard() {
       if (!acc[c.edital_id]) {
         acc[c.edital_id] = [];
       }
-      acc[c.edital_id].push(c);
+      acc[c.edital_id].push(c as Criterio);
       return acc;
     }, {} as Record<string, Criterio[]>);
 
     setCriterios(grouped);
+  };
+
+  const fetchAttachmentCounts = async (editalIds: string[]) => {
+    if (editalIds.length === 0) return;
+
+    const { data, error } = await supabase
+      .from('edital_arquivos' as any)
+      .select('edital_id')
+      .in('edital_id', editalIds);
+
+    if (error) {
+      console.error('Error fetching attachments:', error);
+      return;
+    }
+
+    const counts = (data || []).reduce((acc: Record<string, number>, row: any) => {
+      acc[row.edital_id] = (acc[row.edital_id] || 0) + 1;
+      return acc;
+    }, {});
+    setAttachmentCounts(counts);
   };
 
   useEffect(() => {
@@ -112,7 +137,9 @@ export function Dashboard() {
 
   useEffect(() => {
     if (editais.length > 0) {
-      fetchCriterios(editais.map(e => e.id));
+      const ids = editais.map(e => e.id);
+      fetchCriterios(ids);
+      fetchAttachmentCounts(ids);
     }
   }, [editais]);
 
@@ -125,12 +152,10 @@ export function Dashboard() {
     if (!editalToDelete) return;
 
     try {
-      // Delete from storage
       await supabase.storage
         .from('editais')
         .remove([editalToDelete.arquivo_path]);
 
-      // Delete from database (cascade will delete criterios)
       const { error } = await supabase
         .from('editais')
         .delete()
@@ -152,29 +177,90 @@ export function Dashboard() {
     }
   };
 
+  const handleRename = async (edital: Edital, newName: string) => {
+    const { error } = await supabase
+      .from('editais')
+      .update({ nome: newName })
+      .eq('id', edital.id);
+
+    if (error) {
+      toast({ title: 'Erro ao renomear', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    toast({ title: 'Edital renomeado!' });
+    fetchEditais();
+  };
+
+  const handleRefreshCount = async (editalId: string) => {
+    const { data, error } = await supabase
+      .from('criterios')
+      .select('id')
+      .eq('edital_id', editalId);
+
+    if (error) {
+      toast({ title: 'Erro ao atualizar contagem', description: error.message, variant: 'destructive' });
+      return;
+    }
+
+    setCriterios(prev => ({
+      ...prev,
+      [editalId]: prev[editalId] || [],
+    }));
+
+    // Re-fetch to get accurate data
+    await fetchCriterios([editalId]);
+    toast({ title: `${data?.length || 0} critério(s) encontrado(s)` });
+  };
+
+  const handleAddFile = async (edital: Edital, file: File) => {
+    if (!user) return;
+
+    try {
+      const fileName = `${user.id}/${edital.id}/${Date.now()}_${file.name}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('editais')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { error: dbError } = await supabase
+        .from('edital_arquivos' as any)
+        .insert({
+          edital_id: edital.id,
+          arquivo_nome: file.name,
+          arquivo_path: fileName,
+        } as any);
+
+      if (dbError) throw dbError;
+
+      toast({ title: 'Arquivo adicionado!', description: file.name });
+      fetchAttachmentCounts(editais.map(e => e.id));
+      setAddFileDialogOpen(false);
+      setAddFileEdital(null);
+    } catch (error: any) {
+      toast({ title: 'Erro ao adicionar arquivo', description: error.message, variant: 'destructive' });
+    }
+  };
+
   const handleReprocess = async (edital: Edital) => {
     try {
       toast({ title: 'Reprocessando...', description: `Baixando e reprocessando "${edital.nome}"` });
 
-      // Download the PDF from storage
       const { data: fileData, error: downloadError } = await supabase.storage
         .from('editais')
         .download(edital.arquivo_path);
 
       if (downloadError || !fileData) throw new Error('Erro ao baixar o arquivo');
 
-      // Extract text from the downloaded PDF
       const file = new File([fileData], edital.arquivo_nome, { type: 'application/pdf' });
       const pdfText = await extractTextFromPDF(file);
 
-      // Delete existing criterios for this edital
       await supabase.from('criterios').delete().eq('edital_id', edital.id);
-
-      // Update status to processing
       await supabase.from('editais').update({ status: 'processando', erro_mensagem: null }).eq('id', edital.id);
       fetchEditais();
 
-      // Call edge function
       const { data: session } = await supabase.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-criterios`,
@@ -255,6 +341,7 @@ export function Dashboard() {
             edital={selectedEdital}
             criterios={criterios[selectedEdital.id] || []}
             onBack={() => setSelectedEdital(null)}
+            onCriteriosUpdated={() => fetchCriterios([selectedEdital.id])}
           />
         </div>
       </div>
@@ -356,9 +443,16 @@ export function Dashboard() {
                 key={edital.id}
                 edital={edital}
                 criteriosCount={criterios[edital.id]?.length || 0}
+                attachmentsCount={attachmentCounts[edital.id] || 0}
                 onSelect={() => setSelectedEdital(edital)}
                 onAnalyze={() => setAnalyzeEdital(edital)}
                 onReprocess={() => handleReprocess(edital)}
+                onRename={(newName) => handleRename(edital, newName)}
+                onRefreshCount={() => handleRefreshCount(edital.id)}
+                onAddFile={() => {
+                  setAddFileEdital(edital);
+                  setAddFileDialogOpen(true);
+                }}
                 onDelete={() => {
                   setEditalToDelete(edital);
                   setDeleteDialogOpen(true);
@@ -368,6 +462,32 @@ export function Dashboard() {
           </div>
         )}
       </main>
+
+      {/* Add file dialog */}
+      <Dialog open={addFileDialogOpen} onOpenChange={(open) => { setAddFileDialogOpen(open); if (!open) setAddFileEdital(null); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Adicionar Arquivo a "{addFileEdital?.nome}"</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Selecione um arquivo PDF para anexar a este edital.
+            </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf"
+              className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file && addFileEdital) {
+                  handleAddFile(addFileEdital, file);
+                }
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>

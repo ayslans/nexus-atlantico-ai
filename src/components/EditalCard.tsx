@@ -1,7 +1,9 @@
-import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain, RotateCcw } from 'lucide-react';
+import { useState } from 'react';
+import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain, RotateCcw, Plus, RefreshCw, Pencil, Check, X } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -17,10 +19,14 @@ interface Edital {
 interface EditalCardProps {
   edital: Edital;
   criteriosCount: number;
+  attachmentsCount: number;
   onSelect: () => void;
   onDelete: () => void;
   onAnalyze?: () => void;
   onReprocess?: () => void;
+  onAddFile?: () => void;
+  onRefreshCount?: () => void;
+  onRename?: (newName: string) => void;
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof Clock; variant: 'default' | 'secondary' | 'destructive'; iconClass?: string }> = {
@@ -47,9 +53,19 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; variant:
   },
 };
 
-export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnalyze, onReprocess }: EditalCardProps) {
+export function EditalCard({ edital, criteriosCount, attachmentsCount, onSelect, onDelete, onAnalyze, onReprocess, onAddFile, onRefreshCount, onRename }: EditalCardProps) {
   const config = statusConfig[edital.status];
   const StatusIcon = config.icon;
+  const [isRenaming, setIsRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(edital.nome);
+
+  const handleRenameSubmit = () => {
+    const trimmed = renameValue.trim();
+    if (trimmed && trimmed !== edital.nome && onRename) {
+      onRename(trimmed);
+    }
+    setIsRenaming(false);
+  };
 
   return (
     <Card className="group hover:shadow-elevated transition-all duration-300 cursor-pointer" onClick={onSelect}>
@@ -61,7 +77,28 @@ export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnaly
           
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
-              <h3 className="font-medium truncate">{edital.nome}</h3>
+              {isRenaming ? (
+                <div className="flex items-center gap-1 flex-1" onClick={(e) => e.stopPropagation()}>
+                  <Input
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    className="h-8 text-sm"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleRenameSubmit();
+                      if (e.key === 'Escape') { setIsRenaming(false); setRenameValue(edital.nome); }
+                    }}
+                  />
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleRenameSubmit}>
+                    <Check className="w-3.5 h-3.5 text-accent" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setIsRenaming(false); setRenameValue(edital.nome); }}>
+                    <X className="w-3.5 h-3.5 text-destructive" />
+                  </Button>
+                </div>
+              ) : (
+                <h3 className="font-medium truncate">{edital.nome}</h3>
+              )}
               <Badge variant={config.variant} className="flex-shrink-0">
                 <StatusIcon className={`w-3 h-3 mr-1 ${config.iconClass || ''}`} />
                 {config.label}
@@ -70,6 +107,9 @@ export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnaly
             
             <p className="text-sm text-muted-foreground mt-1 truncate">
               {edital.arquivo_nome}
+              {attachmentsCount > 0 && (
+                <span className="ml-2 text-primary">+{attachmentsCount} arquivo{attachmentsCount !== 1 ? 's' : ''}</span>
+              )}
             </p>
             
             <div className="flex items-center justify-between mt-3">
@@ -88,6 +128,49 @@ export function EditalCard({ edital, criteriosCount, onSelect, onDelete, onAnaly
               </div>
               
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                {onRename && !isRenaming && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setRenameValue(edital.nome);
+                      setIsRenaming(true);
+                    }}
+                    title="Renomear"
+                  >
+                    <Pencil className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                )}
+                {onAddFile && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddFile();
+                    }}
+                    title="Adicionar arquivo"
+                  >
+                    <Plus className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                )}
+                {edital.status === 'concluido' && onRefreshCount && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRefreshCount();
+                    }}
+                    title="Atualizar contagem de critérios"
+                  >
+                    <RefreshCw className="w-4 h-4 text-muted-foreground" />
+                  </Button>
+                )}
                 {edital.status === 'erro' && onReprocess && (
                   <Button
                     variant="ghost"
