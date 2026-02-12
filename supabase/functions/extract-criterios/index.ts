@@ -64,14 +64,29 @@ serve(async (req) => {
       );
     }
 
-    // Get authorization header for user context
+    // Authenticate user
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: 'Authorization required' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authorization' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    const userId = claimsData.claims.sub;
 
     const { editalId, pdfContent } = await req.json();
 
@@ -104,10 +119,10 @@ serve(async (req) => {
     // Create supabase client with service role for database operations
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Verify the edital exists and get its name
+    // Verify the edital exists and belongs to the authenticated user
     const { data: edital, error: editalError } = await supabaseAdmin
       .from('editais')
-      .select('id, nome')
+      .select('id, nome, user_id')
       .eq('id', editalId)
       .maybeSingle();
 
@@ -116,6 +131,13 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Edital not found' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (edital.user_id !== userId) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized: You do not own this edital' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
