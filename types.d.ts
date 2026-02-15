@@ -3,8 +3,10 @@
 
 declare global {
   namespace Deno {
-    function env: {
+    const env: {
       get(key: string): string | undefined;
     };
   }
 }
+
+export {};
