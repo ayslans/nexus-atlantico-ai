@@ -91,47 +91,6 @@ export type Database = {
         }
         Relationships: []
       }
-      criterio_tags: {
-        Row: {
-          id: string
-          criterio_id: string
-          tag: string
-          cor_destaque: string | null
-          criado_por: string | null
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          criterio_id: string
-          tag: string
-          cor_destaque?: string | null
-          criado_por: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          criterio_id?: string
-          tag?: string
-          cor_destaque?: string | null
-          criado_por?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "criterio_tags_criterio_id_fkey",
-            columns: ["criterio_id"],
-            isOneToOne: false,
-            referencedRelation: "criterios",
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "criterio_tags_criado_por_fkey",
-            columns: ["criado_por"],
-            isOneToOne: false,
-            referencedRelation: "users",
-            referencedColumns: ["id"]
-          }
-=======
       edital_arquivos: {
         Row: {
           arquivo_nome: string
@@ -162,7 +121,6 @@ export type Database = {
             referencedRelation: "editais"
             referencedColumns: ["id"]
           },
->>>>>>> 7fd6f19f45bb778aad1e1acfc456910ad225c6da
         ]
       }
     }

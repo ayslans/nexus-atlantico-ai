@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows, Brain } from 'lucide-react';
+import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UploadZone } from './UploadZone';
 import { EditalCard } from './EditalCard';
@@ -12,21 +12,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger,
 } from '@/components/ui/dialog';
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
 interface Edital {
@@ -69,57 +59,36 @@ export function Dashboard() {
 
   const fetchEditais = async () => {
     if (!user) return;
-
     const { data, error } = await supabase
       .from('editais')
       .select('*')
       .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching editais:', error);
-      return;
-    }
-
+    if (error) { console.error('Error fetching editais:', error); return; }
     setEditais((data || []) as Edital[]);
   };
 
   const fetchCriterios = async (editalIds: string[]) => {
     if (editalIds.length === 0) return;
-
     const { data, error } = await supabase
       .from('criterios')
       .select('*')
       .in('edital_id', editalIds);
-
-    if (error) {
-      console.error('Error fetching criterios:', error);
-      return;
-    }
-
+    if (error) { console.error('Error fetching criterios:', error); return; }
     const grouped = (data || []).reduce((acc, c) => {
-      if (!acc[c.edital_id]) {
-        acc[c.edital_id] = [];
-      }
+      if (!acc[c.edital_id]) acc[c.edital_id] = [];
       acc[c.edital_id].push(c as Criterio);
       return acc;
     }, {} as Record<string, Criterio[]>);
-
     setCriterios(grouped);
   };
 
   const fetchAttachmentCounts = async (editalIds: string[]) => {
     if (editalIds.length === 0) return;
-
     const { data, error } = await supabase
       .from('edital_arquivos' as any)
       .select('edital_id')
       .in('edital_id', editalIds);
-
-    if (error) {
-      console.error('Error fetching attachments:', error);
-      return;
-    }
-
+    if (error) { console.error('Error fetching attachments:', error); return; }
     const counts = (data || []).reduce((acc: Record<string, number>, row: any) => {
       acc[row.edital_id] = (acc[row.edital_id] || 0) + 1;
       return acc;
@@ -128,10 +97,7 @@ export function Dashboard() {
   };
 
   useEffect(() => {
-    const load = async () => {
-      await fetchEditais();
-      setLoading(false);
-    };
+    const load = async () => { await fetchEditais(); setLoading(false); };
     load();
   }, [user]);
 
@@ -143,106 +109,55 @@ export function Dashboard() {
     }
   }, [editais]);
 
-  const handleUploadComplete = () => {
-    setUploadDialogOpen(false);
-    fetchEditais();
-  };
+  const handleUploadComplete = () => { setUploadDialogOpen(false); fetchEditais(); };
 
   const handleDelete = async () => {
     if (!editalToDelete) return;
-
     try {
-      await supabase.storage
-        .from('editais')
-        .remove([editalToDelete.arquivo_path]);
-
-      const { error } = await supabase
-        .from('editais')
-        .delete()
-        .eq('id', editalToDelete.id);
-
+      await supabase.storage.from('editais').remove([editalToDelete.arquivo_path]);
+      const { error } = await supabase.from('editais').delete().eq('id', editalToDelete.id);
       if (error) throw error;
-
       toast({ title: 'Edital excluído com sucesso!' });
       fetchEditais();
     } catch (error: any) {
-      toast({
-        title: 'Erro ao excluir',
-        description: error.message,
-        variant: 'destructive',
-      });
+      toast({ title: 'Erro ao excluir', description: error.message, variant: 'destructive' });
     } finally {
       setDeleteDialogOpen(false);
       setEditalToDelete(null);
     }
   };
 
-// Conflito resolvido: mantidas as alterações locais
-  const handleRenameEdital = async (editalId: string, novoNome: string) => {
+  const handleRename = async (edital: Edital, newName: string) => {
     try {
-      const { error } = await supabase
-        .from('editais')
-        .update({ nome_customizado: novoNome })
-        .eq('id', editalId);
-
+      const { error } = await supabase.from('editais').update({ nome: newName }).eq('id', edital.id);
       if (error) throw error;
-
-      setEditais(editais.map(e => 
-        e.id === editalId 
-          ? { ...e, nome_customizado: novoNome } 
-          : e
-      ));
-
       toast({ title: 'Edital renomeado com sucesso!' });
+      fetchEditais();
     } catch (error: any) {
-      toast({
-        title: 'Erro ao renomear',
-        description: error.message,
-        variant: 'destructive',
-      });
-      throw error;
-    const { data, error } = await supabase
-      .from('criterios')
-      .select('id')
-      .eq('edital_id', editalId);
+      toast({ title: 'Erro ao renomear', description: error.message, variant: 'destructive' });
+    }
+  };
 
+  const handleRefreshCount = async (editalId: string) => {
+    const { data, error } = await supabase.from('criterios').select('id').eq('edital_id', editalId);
     if (error) {
       toast({ title: 'Erro ao atualizar contagem', description: error.message, variant: 'destructive' });
       return;
     }
-
-    setCriterios(prev => ({
-      ...prev,
-      [editalId]: prev[editalId] || [],
-    }));
-
-    // Re-fetch to get accurate data
     await fetchCriterios([editalId]);
     toast({ title: `${data?.length || 0} critério(s) encontrado(s)` });
   };
 
   const handleAddFile = async (edital: Edital, file: File) => {
     if (!user) return;
-
     try {
       const fileName = `${user.id}/${edital.id}/${Date.now()}_${file.name}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from('editais')
-        .upload(fileName, file);
-
+      const { error: uploadError } = await supabase.storage.from('editais').upload(fileName, file);
       if (uploadError) throw uploadError;
-
       const { error: dbError } = await supabase
         .from('edital_arquivos' as any)
-        .insert({
-          edital_id: edital.id,
-          arquivo_nome: file.name,
-          arquivo_path: fileName,
-        } as any);
-
+        .insert({ edital_id: edital.id, arquivo_nome: file.name, arquivo_path: fileName } as any);
       if (dbError) throw dbError;
-
       toast({ title: 'Arquivo adicionado!', description: file.name });
       fetchAttachmentCounts(editais.map(e => e.id));
       setAddFileDialogOpen(false);
@@ -255,48 +170,32 @@ export function Dashboard() {
   const handleReprocess = async (edital: Edital) => {
     try {
       toast({ title: 'Reprocessando...', description: `Baixando e reprocessando "${edital.nome}"` });
-
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from('editais')
-        .download(edital.arquivo_path);
-
+      const { data: fileData, error: downloadError } = await supabase.storage.from('editais').download(edital.arquivo_path);
       if (downloadError || !fileData) throw new Error('Erro ao baixar o arquivo');
-
       const file = new File([fileData], edital.arquivo_nome, { type: 'application/pdf' });
       const pdfText = await extractTextFromPDF(file);
-
       await supabase.from('criterios').delete().eq('edital_id', edital.id);
       await supabase.from('editais').update({ status: 'processando', erro_mensagem: null }).eq('id', edital.id);
       fetchEditais();
-
       const { data: session } = await supabase.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-criterios`,
         {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.session?.access_token}`,
-          },
-          body: JSON.stringify({
-            editalId: edital.id,
-            pdfContent: pdfText.substring(0, 400000),
-          }),
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.session?.access_token}` },
+          body: JSON.stringify({ editalId: edital.id, pdfContent: pdfText.substring(0, 400000) }),
         }
       );
-
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Falha ao reprocessar');
       }
-
       const result = await response.json();
       toast({ title: 'Reprocessado com sucesso!', description: `${result.criteriosCount} critérios encontrados.` });
       fetchEditais();
     } catch (error: any) {
       toast({ title: 'Erro ao reprocessar', description: error.message, variant: 'destructive' });
       fetchEditais();
->>>>>>> 7fd6f19f45bb778aad1e1acfc456910ad225c6da
     }
   };
 
@@ -304,11 +203,7 @@ export function Dashboard() {
     return (
       <div className="min-h-screen gradient-hero">
         <div className="container max-w-4xl py-8 px-4">
-          <AnalisePersonas
-            edital={analyzeEdital}
-            criterios={criterios[analyzeEdital.id] || []}
-            onBack={() => setAnalyzeEdital(null)}
-          />
+          <AnalisePersonas edital={analyzeEdital} criterios={criterios[analyzeEdital.id] || []} onBack={() => setAnalyzeEdital(null)} />
         </div>
       </div>
     );
@@ -318,11 +213,7 @@ export function Dashboard() {
     return (
       <div className="min-h-screen gradient-hero">
         <div className="container max-w-6xl py-8 px-4">
-          <CompareEditais
-            editais={editais}
-            criterios={criterios}
-            onBack={() => setShowCompare(false)}
-          />
+          <CompareEditais editais={editais} criterios={criterios} onBack={() => setShowCompare(false)} />
         </div>
       </div>
     );
@@ -332,11 +223,7 @@ export function Dashboard() {
     return (
       <div className="min-h-screen gradient-hero">
         <div className="container max-w-4xl py-8 px-4">
-          <SearchCriterios
-            editais={editais}
-            criterios={criterios}
-            onBack={() => setShowSearch(false)}
-          />
+          <SearchCriterios editais={editais} criterios={criterios} onBack={() => setShowSearch(false)} />
         </div>
       </div>
     );
@@ -350,14 +237,10 @@ export function Dashboard() {
             edital={selectedEdital}
             criterios={criterios[selectedEdital.id] || []}
             onBack={() => setSelectedEdital(null)}
-<<<<<<< HEAD
             onCriteriosUpdated={() => {
               fetchEditais();
               fetchCriterios([selectedEdital.id]);
             }}
-=======
-            onCriteriosUpdated={() => fetchCriterios([selectedEdital.id])}
->>>>>>> 7fd6f19f45bb778aad1e1acfc456910ad225c6da
           />
         </div>
       </div>
@@ -377,14 +260,9 @@ export function Dashboard() {
               <p className="text-xs text-muted-foreground">Extração de Critérios</p>
             </div>
           </div>
-
           <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              {user?.email}
-            </span>
-            <Button variant="ghost" size="icon" onClick={signOut}>
-              <LogOut className="w-4 h-4" />
-            </Button>
+            <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
+            <Button variant="ghost" size="icon" onClick={signOut}><LogOut className="w-4 h-4" /></Button>
           </div>
         </div>
       </header>
@@ -393,41 +271,21 @@ export function Dashboard() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-semibold">Seus Editais</h2>
-            <p className="text-muted-foreground">
-              Faça upload de editais PDF para extrair critérios de seleção
-            </p>
+            <p className="text-muted-foreground">Faça upload de editais PDF para extrair critérios de seleção</p>
           </div>
-          
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => setShowCompare(true)}
-              disabled={editais.filter(e => e.status === 'concluido').length < 2}
-            >
-              <GitCompareArrows className="w-4 h-4" />
-              <span className="hidden sm:inline">Comparar</span>
+            <Button variant="outline" className="gap-2" onClick={() => setShowCompare(true)} disabled={editais.filter(e => e.status === 'concluido').length < 2}>
+              <GitCompareArrows className="w-4 h-4" /><span className="hidden sm:inline">Comparar</span>
             </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={() => setShowSearch(true)}
-              disabled={editais.length === 0}
-            >
-              <Search className="w-4 h-4" />
-              <span className="hidden sm:inline">Buscar</span>
+            <Button variant="outline" className="gap-2" onClick={() => setShowSearch(true)} disabled={editais.length === 0}>
+              <Search className="w-4 h-4" /><span className="hidden sm:inline">Buscar</span>
             </Button>
             <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2">
-                  <Plus className="w-4 h-4" />
-                  Novo Edital
-                </Button>
+                <Button className="gap-2"><Plus className="w-4 h-4" />Novo Edital</Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Enviar Novo Edital</DialogTitle>
-                </DialogHeader>
+                <DialogHeader><DialogTitle>Enviar Novo Edital</DialogTitle></DialogHeader>
                 <UploadZone onUploadComplete={handleUploadComplete} />
               </DialogContent>
             </Dialog>
@@ -444,13 +302,8 @@ export function Dashboard() {
               <FileText className="w-10 h-10 text-muted-foreground" />
             </div>
             <h3 className="text-xl font-medium mb-2">Nenhum edital ainda</h3>
-            <p className="text-muted-foreground mb-6">
-              Envie seu primeiro edital para extrair os critérios de seleção
-            </p>
-            <Button onClick={() => setUploadDialogOpen(true)} className="gap-2">
-              <Plus className="w-4 h-4" />
-              Enviar Edital
-            </Button>
+            <p className="text-muted-foreground mb-6">Envie seu primeiro edital para extrair os critérios de seleção</p>
+            <Button onClick={() => setUploadDialogOpen(true)} className="gap-2"><Plus className="w-4 h-4" />Enviar Edital</Button>
           </div>
         ) : (
           <div className="space-y-3 animate-fade-in">
@@ -465,31 +318,19 @@ export function Dashboard() {
                 onReprocess={() => handleReprocess(edital)}
                 onRename={(newName) => handleRename(edital, newName)}
                 onRefreshCount={() => handleRefreshCount(edital.id)}
-                onAddFile={() => {
-                  setAddFileEdital(edital);
-                  setAddFileDialogOpen(true);
-                }}
-                onDelete={() => {
-                  setEditalToDelete(edital);
-                  setDeleteDialogOpen(true);
-                }}
-                onRename={(novoNome) => handleRenameEdital(edital.id, novoNome)}
+                onAddFile={() => { setAddFileEdital(edital); setAddFileDialogOpen(true); }}
+                onDelete={() => { setEditalToDelete(edital); setDeleteDialogOpen(true); }}
               />
             ))}
           </div>
         )}
       </main>
 
-      {/* Add file dialog */}
       <Dialog open={addFileDialogOpen} onOpenChange={(open) => { setAddFileDialogOpen(open); if (!open) setAddFileEdital(null); }}>
         <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Adicionar Arquivo a "{addFileEdital?.nome}"</DialogTitle>
-          </DialogHeader>
+          <DialogHeader><DialogTitle>Adicionar Arquivo a "{addFileEdital?.nome}"</DialogTitle></DialogHeader>
           <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Selecione um arquivo PDF para anexar a este edital.
-            </p>
+            <p className="text-sm text-muted-foreground">Selecione um arquivo PDF para anexar a este edital.</p>
             <input
               ref={fileInputRef}
               type="file"
@@ -497,9 +338,7 @@ export function Dashboard() {
               className="block w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-medium file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
               onChange={(e) => {
                 const file = e.target.files?.[0];
-                if (file && addFileEdital) {
-                  handleAddFile(addFileEdital, file);
-                }
+                if (file && addFileEdital) handleAddFile(addFileEdital, file);
               }}
             />
           </div>
@@ -510,16 +349,11 @@ export function Dashboard() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir edital?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação não pode ser desfeita. O edital e todos os critérios
-              extraídos serão permanentemente excluídos.
-            </AlertDialogDescription>
+            <AlertDialogDescription>Esta ação não pode ser desfeita. O edital e todos os critérios extraídos serão permanentemente excluídos.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir
-            </AlertDialogAction>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
