@@ -1,5 +1,5 @@
-import { useState, useCallback, useRef } from 'react';
-import { ArrowLeft, FileText, Copy, CheckCircle, RefreshCw, Upload, Loader2 } from 'lucide-react';
+import { useState, useRef } from 'react';
+import { ArrowLeft, FileText, Copy, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -30,6 +30,8 @@ interface CriteriosListProps {
   criterios: Criterio[];
   onBack: () => void;
   onCriteriosUpdated?: () => void;
+  onFullReextract?: () => void;
+  attachmentsCount?: number;
 }
 
 const TAG_COLORS: Record<string, string> = {
@@ -43,14 +45,13 @@ const TAG_COLORS: Record<string, string> = {
 
 const ALL_TAGS = Object.keys(TAG_COLORS);
 
-export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated }: CriteriosListProps) {
+export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, onFullReextract, attachmentsCount = 0 }: CriteriosListProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [isUpdatingCriterios, setIsUpdatingCriterios] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const getTagsForCriterio = (criterio: Criterio): string[] => {
     return localTags[criterio.id] || criterio.tags || [];
@@ -93,8 +94,15 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated }:
   const handleUpdateCriterios = async () => {
     setIsUpdatingCriterios(true);
     try {
-      onCriteriosUpdated?.();
-      toast({ title: 'Critérios atualizados!' });
+      if (onFullReextract) {
+        // Re-extract from ALL files (main + attachments)
+        await onFullReextract();
+      } else {
+        onCriteriosUpdated?.();
+      }
+      toast({ title: 'Critérios atualizados a partir de todos os arquivos!' });
+    } catch (err: any) {
+      toast({ title: 'Erro ao atualizar', description: err.message, variant: 'destructive' });
     } finally {
       setIsUpdatingCriterios(false);
     }
@@ -133,6 +141,9 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated }:
           <h2 className="text-xl font-semibold">{edital.nome}</h2>
           <p className="text-sm text-muted-foreground">
             {filteredCriterios.length} critério{filteredCriterios.length !== 1 ? 's' : ''} {filterTag ? `com tag "${filterTag}"` : 'encontrado' + (filteredCriterios.length !== 1 ? 's' : '')}
+            {attachmentsCount > 0 && (
+              <span className="ml-2 text-primary">• {attachmentsCount + 1} arquivo{attachmentsCount > 0 ? 's' : ''} no total</span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -166,7 +177,7 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated }:
         ))}
       </div>
 
-      <ScrollArea className="h-[calc(100vh-380px)]">
+      <ScrollArea className="h-[calc(100vh-420px)]">
         <div className="space-y-8 pr-4">
           {Object.entries(groupedCriterios).map(([section, sectionCriterios]) => (
             <div key={section} className="space-y-4">

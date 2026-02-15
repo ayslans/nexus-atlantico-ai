@@ -167,31 +167,96 @@ export function Dashboard() {
     }
   };
 
-  const handleReprocess = async (edital: Edital) => {
+  /**
+   * Collects text from ALL files associated with an edital:
+   * the main file (editais.arquivo_path) + all attachments (edital_arquivos).
+   */
+  const gatherAllFilesText = async (edital: Edital): Promise<string> => {
+    const texts: string[] = [];
+
+    // 1. Download and extract text from the main file
+    const { data: mainFile, error: mainErr } = await supabase.storage
+      .from('editais')
+      .download(edital.arquivo_path);
+    if (mainErr || !mainFile) throw new Error('Erro ao baixar o arquivo principal');
+    const mainPdf = new File([mainFile], edital.arquivo_nome, { type: 'application/pdf' });
+    const mainText = await extractTextFromPDF(mainPdf);
+    texts.push(`=== ARQUIVO PRINCIPAL: ${edital.arquivo_nome} ===\n${mainText}`);
+
+    // 2. Fetch all attachments
+    const { data: attachments, error: attErr } = await supabase
+      .from('edital_arquivos' as any)
+      .select('*')
+      .eq('edital_id', edital.id);
+
+    if (!attErr && attachments && attachments.length > 0) {
+      for (const att of attachments as any[]) {
+        try {
+          const { data: attFile, error: dlErr } = await supabase.storage
+            .from('editais')
+            .download(att.arquivo_path);
+          if (dlErr || !attFile) {
+            console.warn(`Falha ao baixar anexo: ${att.arquivo_nome}`);
+            continue;
+          }
+          const attPdf = new File([attFile], att.arquivo_nome, { type: 'application/pdf' });
+          const attText = await extractTextFromPDF(attPdf);
+          texts.push(`=== ARQUIVO ANEXO: ${att.arquivo_nome} ===\n${attText}`);
+        } catch (err) {
+          console.warn(`Erro ao processar anexo ${att.arquivo_nome}:`, err);
+        }
+      }
+    }
+
+    return texts.join('\n\n');
+  };
+
+  /**
+   * Full re-extraction: gathers ALL file texts, deletes old criteria, and calls AI.
+   */
+  const handleFullReextract = async (edital: Edital) => {
     try {
-      toast({ title: 'Reprocessando...', description: `Baixando e reprocessando "${edital.nome}"` });
-      const { data: fileData, error: downloadError } = await supabase.storage.from('editais').download(edital.arquivo_path);
-      if (downloadError || !fileData) throw new Error('Erro ao baixar o arquivo');
-      const file = new File([fileData], edital.arquivo_nome, { type: 'application/pdf' });
-      const pdfText = await extractTextFromPDF(file);
+      const attachCount = attachmentCounts[edital.id] || 0;
+      toast({
+        title: 'Reprocessando todos os arquivos...',
+        description: `Processando arquivo principal${attachCount > 0 ? ` + ${attachCount} anexo(s)` : ''}`,
+      });
+
+      // Gather text from all files
+      const combinedText = await gatherAllFilesText(edital);
+
+      // Delete old criteria
       await supabase.from('criterios').delete().eq('edital_id', edital.id);
       await supabase.from('editais').update({ status: 'processando', erro_mensagem: null }).eq('id', edital.id);
       fetchEditais();
+
+      // Call AI with combined content
       const { data: session } = await supabase.auth.getSession();
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-criterios`,
         {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session?.session?.access_token}` },
-          body: JSON.stringify({ editalId: edital.id, pdfContent: pdfText.substring(0, 400000) }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.session?.access_token}`,
+          },
+          body: JSON.stringify({
+            editalId: edital.id,
+            pdfContent: combinedText.substring(0, 400000),
+          }),
         }
       );
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Falha ao reprocessar');
       }
+
       const result = await response.json();
-      toast({ title: 'Reprocessado com sucesso!', description: `${result.criteriosCount} critérios encontrados.` });
+      toast({
+        title: 'Reprocessado com sucesso!',
+        description: `${result.criteriosCount} critérios encontrados a partir de todos os arquivos.`,
+      });
       fetchEditais();
     } catch (error: any) {
       toast({ title: 'Erro ao reprocessar', description: error.message, variant: 'destructive' });
@@ -241,6 +306,8 @@ export function Dashboard() {
               fetchEditais();
               fetchCriterios([selectedEdital.id]);
             }}
+            onFullReextract={() => handleFullReextract(selectedEdital)}
+            attachmentsCount={attachmentCounts[selectedEdital.id] || 0}
           />
         </div>
       </div>
@@ -315,7 +382,7 @@ export function Dashboard() {
                 attachmentsCount={attachmentCounts[edital.id] || 0}
                 onSelect={() => setSelectedEdital(edital)}
                 onAnalyze={() => setAnalyzeEdital(edital)}
-                onReprocess={() => handleReprocess(edital)}
+                onReprocess={() => handleFullReextract(edital)}
                 onRename={(newName) => handleRename(edital, newName)}
                 onRefreshCount={() => handleRefreshCount(edital.id)}
                 onAddFile={() => { setAddFileEdital(edital); setAddFileDialogOpen(true); }}
