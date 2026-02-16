@@ -374,21 +374,40 @@ export function Dashboard() {
           </div>
         ) : (
           <div className="space-y-3 animate-fade-in">
-            {editais.map((edital) => (
-              <EditalCard
-                key={edital.id}
-                edital={edital}
-                criteriosCount={criterios[edital.id]?.length || 0}
-                attachmentsCount={attachmentCounts[edital.id] || 0}
-                onSelect={() => setSelectedEdital(edital)}
-                onAnalyze={() => setAnalyzeEdital(edital)}
-                onReprocess={() => handleFullReextract(edital)}
-                onRename={(newName) => handleRename(edital, newName)}
-                onRefreshCount={() => handleRefreshCount(edital.id)}
-                onAddFile={() => { setAddFileEdital(edital); setAddFileDialogOpen(true); }}
-                onDelete={() => { setEditalToDelete(edital); setDeleteDialogOpen(true); }}
-              />
-            ))}
+            {editais.map((edital) => {
+              const editalCriterios = criterios[edital.id] || [];
+              const uniqueTags = [...new Set(editalCriterios.flatMap(c => c.tags || []))];
+              return (
+                <EditalCard
+                  key={edital.id}
+                  edital={edital}
+                  criteriosCount={editalCriterios.length}
+                  attachmentsCount={attachmentCounts[edital.id] || 0}
+                  tags={uniqueTags}
+                  onSelect={() => setSelectedEdital(edital)}
+                  onAnalyze={() => setAnalyzeEdital(edital)}
+                  onReprocess={() => handleFullReextract(edital)}
+                  onRename={(newName) => handleRename(edital, newName)}
+                  onRefreshCount={() => handleRefreshCount(edital.id)}
+                  onAddFile={() => { setAddFileEdital(edital); setAddFileDialogOpen(true); }}
+                  onDelete={() => { setEditalToDelete(edital); setDeleteDialogOpen(true); }}
+                  onAddTag={async (tag) => {
+                    // Add tag to all criterios of this edital that don't already have it
+                    const targets = editalCriterios.filter(c => !(c.tags || []).includes(tag));
+                    for (const c of targets) {
+                      await supabase.from('criterios').update({ tags: [...(c.tags || []), tag] }).eq('id', c.id);
+                    }
+                    // If no criterios exist but edital is complete, show message
+                    if (editalCriterios.length === 0) {
+                      toast({ title: 'Nenhum critério encontrado', description: 'Extraia os critérios primeiro.', variant: 'destructive' });
+                      return;
+                    }
+                    toast({ title: `Tag "${tag}" adicionada a ${targets.length} critério(s)` });
+                    fetchCriterios([edital.id]);
+                  }}
+                />
+              );
+            })}
           </div>
         )}
       </main>

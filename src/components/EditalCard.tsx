@@ -1,11 +1,20 @@
 import { useState } from 'react';
-import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain, RotateCcw, Plus, RefreshCw, Pencil, Check, X } from 'lucide-react';
+import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain, RotateCcw, Plus, RefreshCw, Pencil, Check, X, Tag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+const TAG_COLORS: Record<string, string> = {
+  'obrigatório': 'hsl(var(--chart-1))',
+  'técnico': 'hsl(var(--chart-2))',
+  'financeiro': 'hsl(var(--chart-3))',
+  'jurídico': 'hsl(var(--chart-4))',
+  'documental': 'hsl(var(--chart-5))',
+  'eliminatório': 'hsl(var(--destructive))',
+};
 
 interface Edital {
   id: string;
@@ -20,6 +29,7 @@ interface EditalCardProps {
   edital: Edital;
   criteriosCount: number;
   attachmentsCount: number;
+  tags: string[];
   onSelect: () => void;
   onDelete: () => void;
   onAnalyze?: () => void;
@@ -27,6 +37,7 @@ interface EditalCardProps {
   onAddFile?: () => void;
   onRefreshCount?: () => void;
   onRename?: (newName: string) => void;
+  onAddTag?: (tag: string) => void;
 }
 
 const statusConfig: Record<string, { label: string; icon: typeof Clock; variant: 'default' | 'secondary' | 'destructive'; iconClass?: string }> = {
@@ -36,11 +47,13 @@ const statusConfig: Record<string, { label: string; icon: typeof Clock; variant:
   erro: { label: 'Erro', icon: AlertCircle, variant: 'destructive' },
 };
 
-export function EditalCard({ edital, criteriosCount, attachmentsCount, onSelect, onDelete, onAnalyze, onReprocess, onAddFile, onRefreshCount, onRename }: EditalCardProps) {
+export function EditalCard({ edital, criteriosCount, attachmentsCount, tags, onSelect, onDelete, onAnalyze, onReprocess, onAddFile, onRefreshCount, onRename, onAddTag }: EditalCardProps) {
   const config = statusConfig[edital.status];
   const StatusIcon = config.icon;
   const [isRenaming, setIsRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(edital.nome);
+  const [isAddingTag, setIsAddingTag] = useState(false);
+  const [newTagValue, setNewTagValue] = useState('');
 
   const handleRenameSubmit = () => {
     const trimmed = renameValue.trim();
@@ -48,6 +61,15 @@ export function EditalCard({ edital, criteriosCount, attachmentsCount, onSelect,
       onRename(trimmed);
     }
     setIsRenaming(false);
+  };
+
+  const handleTagSubmit = () => {
+    const trimmed = newTagValue.trim().toLowerCase();
+    if (trimmed && onAddTag) {
+      onAddTag(trimmed);
+    }
+    setNewTagValue('');
+    setIsAddingTag(false);
   };
 
   return (
@@ -94,6 +116,52 @@ export function EditalCard({ edital, criteriosCount, attachmentsCount, onSelect,
                 <span className="ml-2 text-primary">+{attachmentsCount} arquivo{attachmentsCount !== 1 ? 's' : ''}</span>
               )}
             </p>
+
+            {/* Tags area */}
+            {(tags.length > 0 || edital.status === 'concluido') && (
+              <div className="flex flex-wrap items-center gap-1.5 mt-2" onClick={(e) => e.stopPropagation()}>
+                {tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-foreground"
+                    style={{ backgroundColor: TAG_COLORS[tag] || 'hsl(var(--muted))' }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+                {edital.status === 'concluido' && !isAddingTag && (
+                  <button
+                    className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-xs font-medium text-muted-foreground border border-dashed border-muted-foreground/40 hover:border-primary hover:text-primary transition-colors"
+                    onClick={() => setIsAddingTag(true)}
+                    title="Adicionar tag"
+                  >
+                    <Plus className="w-3 h-3" />
+                    tag
+                  </button>
+                )}
+                {isAddingTag && (
+                  <div className="flex items-center gap-1">
+                    <Input
+                      value={newTagValue}
+                      onChange={(e) => setNewTagValue(e.target.value)}
+                      placeholder="Nome da tag..."
+                      className="h-6 w-28 text-xs px-2"
+                      autoFocus
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleTagSubmit();
+                        if (e.key === 'Escape') { setIsAddingTag(false); setNewTagValue(''); }
+                      }}
+                    />
+                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={handleTagSubmit}>
+                      <Check className="w-3 h-3" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-5 w-5" onClick={() => { setIsAddingTag(false); setNewTagValue(''); }}>
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex items-center justify-between mt-3">
               <div className="flex items-center gap-4 text-sm text-muted-foreground">
