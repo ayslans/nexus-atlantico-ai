@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, FileText, Copy, CheckCircle, RefreshCw, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,6 +52,8 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
   const [filterTag, setFilterTag] = useState<string | null>(null);
   const [localTags, setLocalTags] = useState<Record<string, string[]>>({});
   const [isUpdatingCriterios, setIsUpdatingCriterios] = useState(false);
+  const [editingTagFor, setEditingTagFor] = useState<string | null>(null);
+  const [newTagValue, setNewTagValue] = useState('');
 
   const getTagsForCriterio = (criterio: Criterio): string[] => {
     return localTags[criterio.id] || criterio.tags || [];
@@ -78,6 +80,18 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
     } catch (err) {
       console.error('Error adding tag:', err);
     }
+  };
+
+  const addCustomTag = async (criterioId: string) => {
+    const trimmed = newTagValue.trim().toLowerCase();
+    if (!trimmed) {
+      toast({ title: 'Tag não pode estar vazia', variant: 'destructive' });
+      return;
+    }
+
+    await addTag(criterioId, trimmed);
+    setNewTagValue('');
+    setEditingTagFor(null);
   };
 
   const removeTag = async (criterioId: string, tag: string) => {
@@ -202,26 +216,101 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
                           </div>
                         </CardHeader>
                         <CardContent>
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed">{criterio.conteudo}</p>
+                          <p className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground">
+                            {criterio.conteudo}
+                          </p>
                           {/* Tags */}
-                          <div className="mt-3 pt-3 border-t flex flex-wrap gap-1.5 items-center">
-                            {tags.map(tag => (
-                              <Badge key={tag} variant="outline" className={`text-xs ${TAG_COLORS[tag] || ''} cursor-pointer`} onClick={() => removeTag(criterio.id, tag)} title="Clique para remover">
-                                {tag} ×
-                              </Badge>
-                            ))}
-                            {ALL_TAGS.filter(t => !tags.includes(t)).length > 0 && (
-                              <select
-                                className="text-xs border rounded px-1 py-0.5 bg-background text-foreground"
-                                value=""
-                                onChange={(e) => { if (e.target.value) addTag(criterio.id, e.target.value); }}
-                              >
-                                <option value="">+ tag</option>
-                                {ALL_TAGS.filter(t => !tags.includes(t)).map(t => (
-                                  <option key={t} value={t}>{t}</option>
-                                ))}
-                              </select>
-                            )}
+                          <div className="mt-4 pt-3 border-t space-y-2">
+                            <div className="flex flex-wrap gap-1.5 items-center">
+                              {tags.map(tag => (
+                                <Badge
+                                  key={tag}
+                                  variant="outline"
+                                  className={`text-xs ${TAG_COLORS[tag] || ''} cursor-pointer`}
+                                  onClick={() => removeTag(criterio.id, tag)}
+                                  title="Clique para remover"
+                                >
+                                  {tag} ×
+                                </Badge>
+                              ))}
+                              {ALL_TAGS.filter(t => !tags.includes(t)).length > 0 && (
+                                <select
+                                  className="text-xs border rounded px-1 py-0.5 bg-background text-foreground"
+                                  value=""
+                                  onClick={(e) => e.stopPropagation()}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      addTag(criterio.id, e.target.value);
+                                    }
+                                  }}
+                                >
+                                  <option value="">+ tag rápida</option>
+                                  {ALL_TAGS.filter(t => !tags.includes(t)).map(t => (
+                                    <option key={t} value={t}>{t}</option>
+                                  ))}
+                                </select>
+                              )}
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              {editingTagFor === criterio.id ? (
+                                <>
+                                  <input
+                                    className="h-7 px-2 py-1 rounded-md border bg-background text-xs outline-none focus:ring-2 focus:ring-primary/40"
+                                    placeholder="Nova tag personalizada..."
+                                    value={newTagValue}
+                                    onClick={(e) => e.stopPropagation()}
+                                    onChange={(e) => setNewTagValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        addCustomTag(criterio.id);
+                                      }
+                                      if (e.key === 'Escape') {
+                                        setEditingTagFor(null);
+                                        setNewTagValue('');
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      addCustomTag(criterio.id);
+                                    }}
+                                  >
+                                    Salvar
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 px-2 text-xs"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setEditingTagFor(null);
+                                      setNewTagValue('');
+                                    }}
+                                  >
+                                    Cancelar
+                                  </Button>
+                                </>
+                              ) : (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setEditingTagFor(criterio.id);
+                                    setNewTagValue('');
+                                  }}
+                                >
+                                  + Adicionar tag personalizada
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </CardContent>
                       </Card>
