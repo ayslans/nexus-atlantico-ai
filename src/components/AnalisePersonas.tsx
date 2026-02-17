@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ArrowLeft, ShieldCheck, FlaskConical, DollarSign, Brain, Loader2, RefreshCw, Save, History } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, FlaskConical, DollarSign, Brain, Loader2, RefreshCw, Save, History, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -32,7 +32,7 @@ interface AnalisePersonasProps {
   onBack: () => void;
 }
 
-type PersonaKey = 'auditor' | 'consultor' | 'orcamentario';
+type PersonaKey = 'auditor' | 'consultor' | 'orcamentario' | 'caracteristicas';
 
 interface PersonaConfig {
   key: PersonaKey;
@@ -64,12 +64,20 @@ const PERSONAS: PersonaConfig[] = [
     description: 'Regras financeiras e contrapartida',
     color: 'border-l-warning',
   },
+  {
+    key: 'caracteristicas',
+    label: 'Caract. da Proposta',
+    icon: <FileText className="w-4 h-4" />,
+    description: 'Formato, critérios e anexos obrigatórios',
+    color: 'border-l-info',
+  },
 ];
 
 interface UltimaSaida {
   auditor_text: string | null;
   consultor_text: string | null;
   orcamentario_text: string | null;
+  caracteristicas_proposta_text: string | null;
   created_at: string;
 }
 
@@ -79,11 +87,13 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     auditor: '',
     consultor: '',
     orcamentario: '',
+    caracteristicas: '',
   });
   const [loading, setLoading] = useState<Record<PersonaKey, boolean>>({
     auditor: false,
     consultor: false,
     orcamentario: false,
+    caracteristicas: false,
   });
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<PersonaKey>('auditor');
@@ -112,7 +122,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
 
     try {
       const criteriosText = buildCriteriosText();
-      
+
       const { data: session } = await supabase.auth.getSession();
       if (!session?.session?.access_token) {
         throw new Error('Não autenticado');
@@ -161,7 +171,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
   const fetchUltimaSaida = useCallback(async () => {
     const { data, error } = await supabase
       .from('analise_personas_saidas')
-      .select('auditor_text, consultor_text, orcamentario_text, created_at')
+      .select('auditor_text, consultor_text, orcamentario_text, caracteristicas_proposta_text, created_at')
       .eq('edital_id', edital.id)
       .order('created_at', { ascending: false })
       .limit(1)
@@ -174,7 +184,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
   }, [fetchUltimaSaida]);
 
   const handleSave = useCallback(async () => {
-    const hasAny = analyses.auditor || analyses.consultor || analyses.orcamentario;
+    const hasAny = analyses.auditor || analyses.consultor || analyses.orcamentario || analyses.caracteristicas;
     if (!hasAny) {
       toast({ title: 'Nada para salvar', description: 'Execute as análises primeiro.', variant: 'destructive' });
       return;
@@ -186,6 +196,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
         auditor_text: analyses.auditor || null,
         consultor_text: analyses.consultor || null,
         orcamentario_text: analyses.orcamentario || null,
+        caracteristicas_proposta_text: analyses.caracteristicas || null,
       });
       if (error) throw error;
       toast({ title: 'Saída salva com sucesso!' });
@@ -209,7 +220,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
             <Brain className="w-4 h-4" />
             Analisar com Todas as Personas
           </Button>
-          <Button variant="outline" onClick={handleSave} className="gap-2" disabled={saving || !(analyses.auditor || analyses.consultor || analyses.orcamentario)}>
+          <Button variant="outline" onClick={handleSave} className="gap-2" disabled={saving || !(analyses.auditor || analyses.consultor || analyses.orcamentario || analyses.caracteristicas)}>
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             Salvar
           </Button>
@@ -229,7 +240,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PersonaKey)}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           {PERSONAS.map(p => (
             <TabsTrigger key={p.key} value={p.key} className="gap-2 text-xs sm:text-sm">
               {p.icon}
@@ -294,7 +305,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
         ))}
       </Tabs>
 
-      {ultimaSaida && (ultimaSaida.auditor_text || ultimaSaida.consultor_text || ultimaSaida.orcamentario_text) && (
+      {ultimaSaida && (ultimaSaida.auditor_text || ultimaSaida.consultor_text || ultimaSaida.orcamentario_text || ultimaSaida.caracteristicas_proposta_text) && (
         <Collapsible defaultOpen={false} className="rounded-xl border bg-muted/30">
           <CollapsibleTrigger className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50 rounded-t-xl">
             <div className="flex items-center gap-2">
@@ -337,6 +348,17 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                   </h4>
                   <div className="prose prose-sm dark:prose-invert max-w-none">
                     <ReactMarkdown>{ultimaSaida.orcamentario_text}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+              {ultimaSaida.caracteristicas_proposta_text && (
+                <div>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                    <FileText className="w-4 h-4" />
+                    Características da Proposta
+                  </h4>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{ultimaSaida.caracteristicas_proposta_text}</ReactMarkdown>
                   </div>
                 </div>
               )}

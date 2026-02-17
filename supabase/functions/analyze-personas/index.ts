@@ -36,6 +36,16 @@ Responda em formato markdown estruturado com as seções acima. Seja analítico 
 3) A lista exata de itens financiáveis (ex: equipamentos, viagens, serviços de terceiros) e itens vedados.
 
 Responda em formato markdown estruturado com as seções acima. Seja preciso com valores e percentuais, citando trechos do edital.`
+  },
+  caracteristicas: {
+    name: "Características da Proposta",
+    prompt: `Você é um Especialista em Análise de Editais. Sua tarefa é extrair as características fundamentais que a proposta deve ter. Identifique:
+1) Qual o formato da proposta? (ex: quantidade de páginas, idioma, seções obrigatórias)
+2) Quais os critérios de avaliação e pontuação específicos para a proposta técnica?
+3) Existem requisitos obrigatórios de conteúdo que, se faltarem, desclassificam a proposta?
+4) Quais os documentos e anexos obrigatórios?
+
+Responda em formato markdown estruturado com as seções acima. Seja detalhista e cite trechos do edital quando relevante.`
   }
 };
 
