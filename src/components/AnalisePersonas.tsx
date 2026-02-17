@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react';
-import { ArrowLeft, ShieldCheck, FlaskConical, DollarSign, Brain, Loader2, RefreshCw } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import { ArrowLeft, ShieldCheck, FlaskConical, DollarSign, Brain, Loader2, RefreshCw, Save, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -65,6 +66,13 @@ const PERSONAS: PersonaConfig[] = [
   },
 ];
 
+interface UltimaSaida {
+  auditor_text: string | null;
+  consultor_text: string | null;
+  orcamentario_text: string | null;
+  created_at: string;
+}
+
 export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasProps) {
   const { toast } = useToast();
   const [analyses, setAnalyses] = useState<Record<PersonaKey, string>>({
@@ -77,7 +85,9 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     consultor: false,
     orcamentario: false,
   });
+  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<PersonaKey>('auditor');
+  const [ultimaSaida, setUltimaSaida] = useState<UltimaSaida | null>(null);
 
   const buildCriteriosText = useCallback(() => {
     return criterios
@@ -148,6 +158,45 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     }
   }, [runAnalysis]);
 
+  const fetchUltimaSaida = useCallback(async () => {
+    const { data, error } = await supabase
+      .from('analise_personas_saidas')
+      .select('auditor_text, consultor_text, orcamentario_text, created_at')
+      .eq('edital_id', edital.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!error && data) setUltimaSaida(data);
+  }, [edital.id]);
+
+  useEffect(() => {
+    fetchUltimaSaida();
+  }, [fetchUltimaSaida]);
+
+  const handleSave = useCallback(async () => {
+    const hasAny = analyses.auditor || analyses.consultor || analyses.orcamentario;
+    if (!hasAny) {
+      toast({ title: 'Nada para salvar', description: 'Execute as análises primeiro.', variant: 'destructive' });
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase.from('analise_personas_saidas').insert({
+        edital_id: edital.id,
+        auditor_text: analyses.auditor || null,
+        consultor_text: analyses.consultor || null,
+        orcamentario_text: analyses.orcamentario || null,
+      });
+      if (error) throw error;
+      toast({ title: 'Saída salva com sucesso!' });
+      fetchUltimaSaida();
+    } catch (e: any) {
+      toast({ title: 'Erro ao salvar', description: e.message, variant: 'destructive' });
+    } finally {
+      setSaving(false);
+    }
+  }, [edital.id, analyses, fetchUltimaSaida, toast]);
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -155,10 +204,16 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
-        <Button onClick={runAllAnalyses} className="gap-2" disabled={Object.values(loading).some(Boolean)}>
-          <Brain className="w-4 h-4" />
-          Analisar com Todas as Personas
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={runAllAnalyses} className="gap-2" disabled={Object.values(loading).some(Boolean)}>
+            <Brain className="w-4 h-4" />
+            Analisar com Todas as Personas
+          </Button>
+          <Button variant="outline" onClick={handleSave} className="gap-2" disabled={saving || !(analyses.auditor || analyses.consultor || analyses.orcamentario)}>
+            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            Salvar
+          </Button>
+        </div>
       </div>
 
       <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
@@ -238,6 +293,57 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
           </TabsContent>
         ))}
       </Tabs>
+
+      {ultimaSaida && (ultimaSaida.auditor_text || ultimaSaida.consultor_text || ultimaSaida.orcamentario_text) && (
+        <Collapsible defaultOpen={false} className="rounded-xl border bg-muted/30">
+          <CollapsibleTrigger className="flex w-full items-center justify-between p-4 text-left hover:bg-muted/50 rounded-t-xl">
+            <div className="flex items-center gap-2">
+              <History className="w-4 h-4 text-muted-foreground" />
+              <span className="font-medium">Última saída salva</span>
+              <Badge variant="secondary" className="text-xs">
+                {new Date(ultimaSaida.created_at).toLocaleString('pt-BR')}
+              </Badge>
+            </div>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="border-t p-4 space-y-6">
+              {ultimaSaida.auditor_text && (
+                <div>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                    <ShieldCheck className="w-4 h-4" />
+                    Auditor de Conformidade
+                  </h4>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{ultimaSaida.auditor_text}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+              {ultimaSaida.consultor_text && (
+                <div>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                    <FlaskConical className="w-4 h-4" />
+                    Consultor de P&D
+                  </h4>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{ultimaSaida.consultor_text}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+              {ultimaSaida.orcamentario_text && (
+                <div>
+                  <h4 className="text-sm font-medium flex items-center gap-2 mb-2">
+                    <DollarSign className="w-4 h-4" />
+                    Analista Orçamentário
+                  </h4>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{ultimaSaida.orcamentario_text}</ReactMarkdown>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
     </div>
   );
 }
