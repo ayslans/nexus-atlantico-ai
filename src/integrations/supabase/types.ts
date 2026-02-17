@@ -123,6 +123,41 @@ export type Database = {
           },
         ]
       }
+      analise_personas_saidas: {
+        Row: {
+          id: string
+          edital_id: string
+          auditor_text: string | null
+          consultor_text: string | null
+          orcamentario_text: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          edital_id: string
+          auditor_text?: string | null
+          consultor_text?: string | null
+          orcamentario_text?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          edital_id?: string
+          auditor_text?: string | null
+          consultor_text?: string | null
+          orcamentario_text?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "analise_personas_saidas_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "editais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
