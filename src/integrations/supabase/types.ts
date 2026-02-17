@@ -24,6 +24,7 @@ export type Database = {
           secao: string | null
           tags: string[] | null
           titulo: string | null
+          arquivo_id: string | null
         }
         Insert: {
           conteudo: string
@@ -34,6 +35,7 @@ export type Database = {
           secao?: string | null
           tags?: string[] | null
           titulo?: string | null
+          arquivo_id?: string | null
         }
         Update: {
           conteudo?: string
@@ -44,6 +46,7 @@ export type Database = {
           secao?: string | null
           tags?: string[] | null
           titulo?: string | null
+          arquivo_id?: string | null
         }
         Relationships: [
           {
@@ -66,6 +69,8 @@ export type Database = {
           status: string
           updated_at: string
           user_id: string
+          nome_customizado: string | null
+          arquivo_principal_id: string | null
         }
         Insert: {
           arquivo_nome: string
@@ -77,6 +82,8 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id: string
+          nome_customizado?: string | null
+          arquivo_principal_id?: string | null
         }
         Update: {
           arquivo_nome?: string
@@ -88,6 +95,8 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+          nome_customizado?: string | null
+          arquivo_principal_id?: string | null
         }
         Relationships: []
       }
@@ -95,21 +104,39 @@ export type Database = {
         Row: {
           arquivo_nome: string
           arquivo_path: string
+          arquivo_size: number | null
+          arquivo_hash: string | null
+          criterios_count: number
+          status: string
+          erro_mensagem: string | null
           created_at: string
+          updated_at: string
           edital_id: string
           id: string
         }
         Insert: {
           arquivo_nome: string
           arquivo_path: string
+          arquivo_size?: number | null
+          arquivo_hash?: string | null
+          criterios_count?: number
+          status?: string
+          erro_mensagem?: string | null
           created_at?: string
+          updated_at?: string
           edital_id: string
           id?: string
         }
         Update: {
           arquivo_nome?: string
           arquivo_path?: string
+          arquivo_size?: number | null
+          arquivo_hash?: string | null
+          criterios_count?: number
+          status?: string
+          erro_mensagem?: string | null
           created_at?: string
+          updated_at?: string
           edital_id?: string
           id?: string
         }
@@ -157,6 +184,41 @@ export type Database = {
             columns: ["edital_id"]
             isOneToOne: false
             referencedRelation: "editais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      criterio_tags: {
+        Row: {
+          id: string
+          criterio_id: string
+          tag: string
+          cor_destaque: string
+          criado_por: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          criterio_id: string
+          tag: string
+          cor_destaque?: string
+          criado_por: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          criterio_id?: string
+          tag?: string
+          cor_destaque?: string
+          criado_por?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "criterio_tags_criterio_id_fkey"
+            columns: ["criterio_id"]
+            isOneToOne: false
+            referencedRelation: "criterios"
             referencedColumns: ["id"]
           },
         ]
