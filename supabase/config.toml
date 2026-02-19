@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.analyze-personas]
 verify_jwt = false
+
+[functions.generate-proposal-model]
+verify_jwt = false
