@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain, RotateCcw, Plus, RefreshCw, Pencil, Check, X, Tag, Sparkles } from 'lucide-react';
+import { FileText, Clock, CheckCircle, AlertCircle, Loader2, Trash2, ChevronRight, Brain, RotateCcw, Plus, RefreshCw, Pencil, Check, X, Tag } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -197,11 +197,8 @@ export function EditalCard({ edital, criteriosCount, attachmentsCount, tags, onS
                   </Button>
                 )}
                 {edital.status === 'concluido' && onAnalyze && (
-                  <Button variant="ghost" size="icon" className="h-8 w-8 relative group/btn" onClick={(e) => { e.stopPropagation(); onAnalyze(); }} title="Gerar Modelo de Proposta">
-                    <Sparkles className="w-4 h-4 text-primary animate-pulse" />
-                    <span className="absolute -top-6 left-1/2 -translate-x-1/2 scale-0 group-hover/btn:scale-100 transition-transform bg-primary text-primary-foreground text-[10px] px-1.5 py-0.5 rounded-full whitespace-nowrap">
-                      Gerar Proposta
-                    </span>
+                  <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onAnalyze(); }} title="Analisar com IA">
+                    <Brain className="w-4 h-4 text-primary" />
                   </Button>
                 )}
                 <Button variant="ghost" size="icon" className="h-8 w-8" onClick={(e) => { e.stopPropagation(); onDelete(); }}>

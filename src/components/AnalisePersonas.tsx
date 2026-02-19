@@ -130,7 +130,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
   const [activeTab, setActiveTab] = useState<PersonaKey>('auditor');
   const [ultimaSaida, setUltimaSaida] = useState<UltimaSaida | null>(null);
   const [saving, setSaving] = useState(false);
-
+  
   // Estado para o modelo de proposta
   const [proposalModel, setProposalModel] = useState<ProposalModel | null>(null);
   const [generatingProposal, setGeneratingProposal] = useState(false);
@@ -258,7 +258,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     try {
       const criteriosText = buildCriteriosText();
       const { data: session } = await supabase.auth.getSession();
-
+      
       if (!session?.session?.access_token) {
         throw new Error('Não autenticado');
       }
@@ -288,7 +288,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       setProposalModel(data.proposalModel);
       setChecklist(data.proposalModel.checklist || []);
       setShowProposalBuilder(true);
-
+      
       toast({ title: 'Modelo de proposta gerado com sucesso!' });
     } catch (error: any) {
       toast({
@@ -303,13 +303,13 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
 
   // Toggle checklist item
   const toggleChecklistItem = useCallback((itemId: string) => {
-    setChecklist(prev => prev.map(item =>
+    setChecklist(prev => prev.map(item => 
       item.id === itemId ? { ...item, verificado: !item.verificado } : item
     ));
   }, []);
 
   // Calcular progresso do checklist
-  const checklistProgress = checklist.length > 0
+  const checklistProgress = checklist.length > 0 
     ? Math.round((checklist.filter(i => i.verificado).length / checklist.length) * 100)
     : 0;
 
@@ -319,7 +319,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
 
     let markdown = `# ${proposalModel.titulo}\n\n`;
     markdown += `## Resumo Executivo\n${proposalModel.resumo_executivo}\n\n`;
-
+    
     markdown += `## Estrutura da Proposta\n\n`;
     proposalModel.estrutura.forEach((section, idx) => {
       markdown += `### ${idx + 1}. ${section.titulo}${section.obrigatorio ? ' *(Obrigatório)*' : ''}\n`;
@@ -470,7 +470,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                 {['documento', 'conteudo', 'formato', 'prazo'].map(categoria => {
                   const items = checklist.filter(i => i.categoria === categoria);
                   if (items.length === 0) return null;
-
+                  
                   const categoriaLabels: Record<string, string> = {
                     documento: '📄 Documentos',
                     conteudo: '📝 Conteúdo',
@@ -483,20 +483,22 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                       <h4 className="text-sm font-medium mb-2">{categoriaLabels[categoria]}</h4>
                       <div className="space-y-2">
                         {items.map(item => (
-                          <div
-                            key={item.id}
-                            className={`flex items-start gap-3 p-2 rounded-lg transition-colors ${item.verificado ? 'bg-green-500/10' : 'hover:bg-muted/50'
-                              }`}
+                          <div 
+                            key={item.id} 
+                            className={`flex items-start gap-3 p-2 rounded-lg transition-colors ${
+                              item.verificado ? 'bg-green-500/10' : 'hover:bg-muted/50'
+                            }`}
                           >
                             <Checkbox
                               id={item.id}
                               checked={item.verificado}
                               onCheckedChange={() => toggleChecklistItem(item.id)}
                             />
-                            <label
-                              htmlFor={item.id}
-                              className={`text-sm cursor-pointer flex-1 ${item.verificado ? 'line-through text-muted-foreground' : ''
-                                }`}
+                            <label 
+                              htmlFor={item.id} 
+                              className={`text-sm cursor-pointer flex-1 ${
+                                item.verificado ? 'line-through text-muted-foreground' : ''
+                              }`}
                             >
                               {item.item}
                               {item.obrigatorio && (
@@ -591,11 +593,11 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                 <ReactMarkdown>{analyses.caracteristicas}</ReactMarkdown>
               </div>
             </ScrollArea>
-
+            
             {/* Botão para gerar modelo completo */}
             <div className="pt-4 border-t">
-              <Button
-                onClick={generateProposalModel}
+              <Button 
+                onClick={generateProposalModel} 
                 disabled={generatingProposal}
                 className="w-full gap-2"
                 size="lg"
@@ -639,10 +641,10 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
             <Brain className="w-4 h-4" />
             Analisar com Todas as Personas
           </Button>
-          <Button
-            variant="outline"
-            onClick={handleSave}
-            className="gap-2"
+          <Button 
+            variant="outline" 
+            onClick={handleSave} 
+            className="gap-2" 
             disabled={saving || !(analyses.auditor || analyses.consultor || analyses.orcamentario || analyses.caracteristicas)}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -666,16 +668,10 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PersonaKey)}>
         <TabsList className="grid w-full grid-cols-4">
           {PERSONAS.map(p => (
-            <TabsTrigger key={p.key} value={p.key} className="gap-2 text-xs sm:text-sm relative">
+            <TabsTrigger key={p.key} value={p.key} className="gap-2 text-xs sm:text-sm">
               {p.icon}
               <span className="hidden sm:inline">{p.label}</span>
               <span className="sm:hidden">{p.label.split(' ')[0]}</span>
-              {p.key === 'caracteristicas' && !analyses[p.key] && (
-                <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-                </span>
-              )}
               {analyses[p.key] && <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 justify-center text-[10px]">✓</Badge>}
             </TabsTrigger>
           ))}
