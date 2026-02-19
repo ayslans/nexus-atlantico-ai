@@ -130,12 +130,36 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
   const [activeTab, setActiveTab] = useState<PersonaKey>('auditor');
   const [ultimaSaida, setUltimaSaida] = useState<UltimaSaida | null>(null);
   const [saving, setSaving] = useState(false);
-  
+
   // Estado para o modelo de proposta
   const [proposalModel, setProposalModel] = useState<ProposalModel | null>(null);
   const [generatingProposal, setGeneratingProposal] = useState(false);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [showProposalBuilder, setShowProposalBuilder] = useState(false);
+
+  // Carregar modelo do localStorage ao iniciar
+  useEffect(() => {
+    const savedModel = localStorage.getItem(`proposal_model_${edital.id}`);
+    if (savedModel) {
+      try {
+        const parsed = JSON.parse(savedModel);
+        setProposalModel(parsed);
+        setChecklist(parsed.checklist || []);
+      } catch (e) {
+        console.error('Erro ao carregar modelo salvo:', e);
+      }
+    }
+  }, [edital.id]);
+
+  // Salvar modelo no localStorage quando for gerado ou alterado
+  useEffect(() => {
+    if (proposalModel) {
+      localStorage.setItem(`proposal_model_${edital.id}`, JSON.stringify({
+        ...proposalModel,
+        checklist // Usar o estado atual do checklist que pode ter sido marcado
+      }));
+    }
+  }, [proposalModel, checklist, edital.id]);
 
   const buildCriteriosText = useCallback(() => {
     return criterios
@@ -258,7 +282,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     try {
       const criteriosText = buildCriteriosText();
       const { data: session } = await supabase.auth.getSession();
-      
+
       if (!session?.session?.access_token) {
         throw new Error('Não autenticado');
       }
@@ -288,7 +312,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       setProposalModel(data.proposalModel);
       setChecklist(data.proposalModel.checklist || []);
       setShowProposalBuilder(true);
-      
+
+      // O salvamento no localStorage ocorrerá via useEffect
       toast({ title: 'Modelo de proposta gerado com sucesso!' });
     } catch (error: any) {
       toast({
@@ -303,13 +328,13 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
 
   // Toggle checklist item
   const toggleChecklistItem = useCallback((itemId: string) => {
-    setChecklist(prev => prev.map(item => 
+    setChecklist(prev => prev.map(item =>
       item.id === itemId ? { ...item, verificado: !item.verificado } : item
     ));
   }, []);
 
   // Calcular progresso do checklist
-  const checklistProgress = checklist.length > 0 
+  const checklistProgress = checklist.length > 0
     ? Math.round((checklist.filter(i => i.verificado).length / checklist.length) * 100)
     : 0;
 
@@ -319,7 +344,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
 
     let markdown = `# ${proposalModel.titulo}\n\n`;
     markdown += `## Resumo Executivo\n${proposalModel.resumo_executivo}\n\n`;
-    
+
     markdown += `## Estrutura da Proposta\n\n`;
     proposalModel.estrutura.forEach((section, idx) => {
       markdown += `### ${idx + 1}. ${section.titulo}${section.obrigatorio ? ' *(Obrigatório)*' : ''}\n`;
@@ -375,15 +400,26 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                 Estrutura otimizada para {edital.nome}
               </p>
             </div>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowProposalBuilder(false)}>
-                Ver Análise
-              </Button>
-              <Button variant="outline" size="sm" onClick={exportProposalAsMarkdown} className="gap-2">
-                <Download className="w-4 h-4" />
-                Exportar MD
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowProposalBuilder(false)}>
+              Ver Análise
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (confirm('Tem certeza que deseja apagar o modelo atual e gerar um novo?')) {
+                  localStorage.removeItem(`proposal_model_${edital.id}`);
+                  setProposalModel(null);
+                  setChecklist([]);
+                  setShowProposalBuilder(false);
+                  generateProposalModel();
+                }
+              }}
+              className="gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Regerar
+            </Button>
           </div>
 
           {/* Progresso do Checklist */}
@@ -470,7 +506,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                 {['documento', 'conteudo', 'formato', 'prazo'].map(categoria => {
                   const items = checklist.filter(i => i.categoria === categoria);
                   if (items.length === 0) return null;
-                  
+
                   const categoriaLabels: Record<string, string> = {
                     documento: '📄 Documentos',
                     conteudo: '📝 Conteúdo',
@@ -483,22 +519,20 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                       <h4 className="text-sm font-medium mb-2">{categoriaLabels[categoria]}</h4>
                       <div className="space-y-2">
                         {items.map(item => (
-                          <div 
-                            key={item.id} 
-                            className={`flex items-start gap-3 p-2 rounded-lg transition-colors ${
-                              item.verificado ? 'bg-green-500/10' : 'hover:bg-muted/50'
-                            }`}
+                          <div
+                            key={item.id}
+                            className={`flex items-start gap-3 p-2 rounded-lg transition-colors ${item.verificado ? 'bg-green-500/10' : 'hover:bg-muted/50'
+                              }`}
                           >
                             <Checkbox
                               id={item.id}
                               checked={item.verificado}
                               onCheckedChange={() => toggleChecklistItem(item.id)}
                             />
-                            <label 
-                              htmlFor={item.id} 
-                              className={`text-sm cursor-pointer flex-1 ${
-                                item.verificado ? 'line-through text-muted-foreground' : ''
-                              }`}
+                            <label
+                              htmlFor={item.id}
+                              className={`text-sm cursor-pointer flex-1 ${item.verificado ? 'line-through text-muted-foreground' : ''
+                                }`}
                             >
                               {item.item}
                               {item.obrigatorio && (
@@ -574,7 +608,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
               </ul>
             </CardContent>
           </Card>
-        </div>
+        </div >
       );
     }
 
@@ -593,11 +627,22 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                 <ReactMarkdown>{analyses.caracteristicas}</ReactMarkdown>
               </div>
             </ScrollArea>
-            
-            {/* Botão para gerar modelo completo */}
-            <div className="pt-4 border-t">
-              <Button 
-                onClick={generateProposalModel} 
+
+            <div className="pt-4 border-t flex flex-col gap-2">
+              {proposalModel ? (
+                <Button
+                  onClick={() => setShowProposalBuilder(true)}
+                  variant="outline"
+                  className="w-full gap-2 border-primary text-primary hover:bg-primary/5"
+                  size="lg"
+                >
+                  <FileCheck className="w-4 h-4" />
+                  Ver Modelo de Proposta Existente
+                </Button>
+              ) : null}
+
+              <Button
+                onClick={generateProposalModel}
                 disabled={generatingProposal}
                 className="w-full gap-2"
                 size="lg"
@@ -610,7 +655,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                 ) : (
                   <>
                     <Sparkles className="w-4 h-4" />
-                    Gerar Modelo de Proposta Completo
+                    {proposalModel ? 'Regerar Modelo de Proposta Completo' : 'Gerar Modelo de Proposta Completo'}
                   </>
                 )}
               </Button>
@@ -641,10 +686,10 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
             <Brain className="w-4 h-4" />
             Analisar com Todas as Personas
           </Button>
-          <Button 
-            variant="outline" 
-            onClick={handleSave} 
-            className="gap-2" 
+          <Button
+            variant="outline"
+            onClick={handleSave}
+            className="gap-2"
             disabled={saving || !(analyses.auditor || analyses.consultor || analyses.orcamentario || analyses.caracteristicas)}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
