@@ -184,13 +184,16 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       }
 
       const aiUrl = import.meta.env.VITE_AI_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+      const aiKey = import.meta.env.VITE_AI_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const response = await fetch(
         `${aiUrl}/functions/v1/analyze-personas`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.session.access_token}`,
+            'Authorization': `Bearer ${session.session.access_token}`,
+            'apikey': aiKey,
           },
           body: JSON.stringify({
             persona,
@@ -284,13 +287,16 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       }
 
       const aiUrl = import.meta.env.VITE_AI_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+      const aiKey = import.meta.env.VITE_AI_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
       const response = await fetch(
         `${aiUrl}/functions/v1/generate-proposal-model`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.session.access_token}`,
+            'Authorization': `Bearer ${session.session.access_token}`,
+            'apikey': aiKey,
           },
           body: JSON.stringify({
             criteriosText,
