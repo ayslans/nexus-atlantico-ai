@@ -130,7 +130,7 @@ serve(async (req) => {
 
   try {
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    
+
     if (!GEMINI_API_KEY) {
       return new Response(
         JSON.stringify({ error: 'AI service not configured. Please set GEMINI_API_KEY.' }),
@@ -155,10 +155,12 @@ serve(async (req) => {
     });
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+
+    if (authError || !user) {
+      console.error('Auth error:', authError);
       return new Response(
-        JSON.stringify({ error: 'Invalid authorization' }),
+        JSON.stringify({ error: 'Invalid or expired authorization' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -184,7 +186,7 @@ serve(async (req) => {
     console.log(`Analyzing with persona: ${selectedPersona.name} for edital: ${editalNome}`);
 
     const userContent = `Analise os seguintes critérios extraídos do edital "${editalNome}":\n\n${criteriosText}`;
-    
+
     const aiResult = await callGemini(selectedPersona.prompt, userContent, GEMINI_API_KEY);
 
     if (!aiResult.success) {

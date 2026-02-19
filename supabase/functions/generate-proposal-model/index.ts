@@ -87,7 +87,7 @@ IMPORTANTE: Retorne APENAS um JSON válido no seguinte formato (sem markdown, se
 
 // Função para gerar UUID simples
 function generateUUID(): string {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
     return v.toString(16);
@@ -96,15 +96,15 @@ function generateUUID(): string {
 
 // Função para chamar Gemini com retry
 async function callGeminiWithRetry(
-  systemPrompt: string, 
-  userContent: string, 
+  systemPrompt: string,
+  userContent: string,
   geminiKey: string,
   maxRetries: number = 3
 ): Promise<{ success: boolean; content: any }> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       console.log(`Gemini call attempt ${attempt + 1}/${maxRetries}`);
-      
+
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
         {
@@ -127,7 +127,7 @@ async function callGeminiWithRetry(
       if (!response.ok) {
         const errorText = await response.text();
         console.error(`Gemini error (attempt ${attempt + 1}):`, response.status, errorText);
-        
+
         // Se for rate limit, esperar antes de retry
         if (response.status === 429) {
           await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
@@ -138,18 +138,29 @@ async function callGeminiWithRetry(
 
       const data = await response.json();
       const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      
+
       if (!textContent) {
         throw new Error('Empty response from Gemini');
       }
 
       // Extrair JSON da resposta (pode vir com markdown code blocks)
-      let jsonContent = textContent;
-      const jsonMatch = textContent.match(/```(?:json)?\s*([\s\S]*?)```/);
-      if (jsonMatch) {
-        jsonContent = jsonMatch[1].trim();
+      let jsonContent = textContent.trim();
+
+      // Remove possible markdown code blocks
+      if (jsonContent.startsWith('```')) {
+        const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (match) {
+          jsonContent = match[1].trim();
+        }
       }
-      
+
+      // If there's still extra text around the JSON, try to find the first { and last }
+      const firstBrace = jsonContent.indexOf('{');
+      const lastBrace = jsonContent.lastIndexOf('}');
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        jsonContent = jsonContent.substring(firstBrace, lastBrace + 1);
+      }
+
       // Tentar parsear JSON
       try {
         const parsed = JSON.parse(jsonContent);
@@ -159,7 +170,7 @@ async function callGeminiWithRetry(
         if (attempt < maxRetries - 1) continue;
         throw new Error('Failed to parse AI response as JSON');
       }
-      
+
     } catch (error) {
       console.error(`Attempt ${attempt + 1} failed:`, error);
       if (attempt === maxRetries - 1) {
@@ -178,7 +189,7 @@ async function generateProposalModel(
   geminiKey: string
 ): Promise<any> {
   console.log(`Generating proposal model for: ${editalNome}`);
-  
+
   // Executar análises em paralelo para otimizar tempo
   const [estruturaResult, checklistResult, criteriosResult, estrategiaResult] = await Promise.all([
     callGeminiWithRetry(ANALYSIS_PROMPTS.estrutura, criteriosText, geminiKey),
@@ -188,8 +199,8 @@ async function generateProposalModel(
   ]);
 
   // Verificar se todas as análises foram bem sucedidas
-  if (!estruturaResult.success || !checklistResult.success || 
-      !criteriosResult.success || !estrategiaResult.success) {
+  if (!estruturaResult.success || !checklistResult.success ||
+    !criteriosResult.success || !estrategiaResult.success) {
     throw new Error('Falha em uma ou mais análises de IA. Tente novamente.');
   }
 
@@ -206,8 +217,8 @@ async function generateProposalModel(
     id: item.id || generateUUID(),
     verificado: false,
     obrigatorio: item.obrigatorio !== false,
-    categoria: ['documento', 'conteudo', 'formato', 'prazo'].includes(item.categoria) 
-      ? item.categoria 
+    categoria: ['documento', 'conteudo', 'formato', 'prazo'].includes(item.categoria)
+      ? item.categoria
       : 'conteudo',
   }));
 
@@ -220,7 +231,7 @@ async function generateProposalModel(
   // Montar modelo completo
   const proposalModel = {
     titulo: `Modelo de Proposta - ${editalNome}`,
-    resumo_executivo: estrategiaResult.content.resumo_executivo || 
+    resumo_executivo: estrategiaResult.content.resumo_executivo ||
       'Análise do edital para construção de proposta competitiva.',
     estrutura,
     checklist,
@@ -268,7 +279,7 @@ serve(async (req) => {
 
   try {
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-    
+
     if (!GEMINI_API_KEY) {
       return new Response(
         JSON.stringify({ error: 'AI service not configured. Please set GEMINI_API_KEY.' }),
@@ -293,10 +304,12 @@ serve(async (req) => {
     });
 
     const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: claimsError } = await supabaseAuth.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims) {
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+
+    if (authError || !user) {
+      console.error('Auth error:', authError);
       return new Response(
-        JSON.stringify({ error: 'Invalid authorization' }),
+        JSON.stringify({ error: 'Invalid or expired authorization' }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -337,8 +350,8 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in generate-proposal-model:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Erro ao gerar modelo de proposta' 
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Erro ao gerar modelo de proposta'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
