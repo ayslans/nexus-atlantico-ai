@@ -150,7 +150,6 @@ export type Database = {
           },
         ]
       }
-<<<<<<< HEAD
       analise_personas_saidas: {
         Row: {
           id: string
@@ -224,8 +223,38 @@ export type Database = {
           },
         ]
       }
-=======
->>>>>>> parent of bc3d295 (feat: salvar saidas de analise de personas no banco e exibir ultima saida)
+      proposal_models: {
+        Row: {
+          id: string
+          edital_id: string
+          model_data: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          edital_id: string
+          model_data: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          edital_id?: string
+          model_data?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "proposal_models_edital_id_fkey"
+            columns: ["edital_id"]
+            isOneToOne: false
+            referencedRelation: "editais"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
