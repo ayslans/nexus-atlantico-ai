@@ -1,10 +1,14 @@
+<<<<<<< HEAD
 import { useState, useCallback, useEffect } from 'react';
 import { ArrowLeft, ShieldCheck, FlaskConical, DollarSign, Brain, Loader2, RefreshCw, Save, History, FileText } from 'lucide-react';
+=======
+import { useState, useCallback } from 'react';
+import { ArrowLeft, ShieldCheck, FlaskConical, DollarSign, Brain, Loader2, RefreshCw } from 'lucide-react';
+>>>>>>> parent of bc3d295 (feat: salvar saidas de analise de personas no banco e exibir ultima saida)
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import ReactMarkdown from 'react-markdown';
@@ -73,6 +77,7 @@ const PERSONAS: PersonaConfig[] = [
   },
 ];
 
+<<<<<<< HEAD
 interface UltimaSaida {
   auditor_text: string | null;
   consultor_text: string | null;
@@ -81,6 +86,8 @@ interface UltimaSaida {
   created_at: string;
 }
 
+=======
+>>>>>>> parent of bc3d295 (feat: salvar saidas de analise de personas no banco e exibir ultima saida)
 export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasProps) {
   const { toast } = useToast();
   const [analyses, setAnalyses] = useState<Record<PersonaKey, string>>({
@@ -95,9 +102,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     orcamentario: false,
     caracteristicas: false,
   });
-  const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<PersonaKey>('auditor');
-  const [ultimaSaida, setUltimaSaida] = useState<UltimaSaida | null>(null);
 
   const buildCriteriosText = useCallback(() => {
     return criterios
@@ -168,6 +173,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     }
   }, [runAnalysis]);
 
+<<<<<<< HEAD
   const fetchUltimaSaida = useCallback(async () => {
     const { data, error } = await supabase
       .from('analise_personas_saidas')
@@ -208,6 +214,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     }
   }, [edital.id, analyses, fetchUltimaSaida, toast]);
 
+=======
+>>>>>>> parent of bc3d295 (feat: salvar saidas de analise de personas no banco e exibir ultima saida)
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -215,6 +223,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
+<<<<<<< HEAD
         <div className="flex gap-2">
           <Button onClick={runAllAnalyses} className="gap-2" disabled={Object.values(loading).some(Boolean)}>
             <Brain className="w-4 h-4" />
@@ -225,6 +234,12 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
             Salvar
           </Button>
         </div>
+=======
+        <Button onClick={runAllAnalyses} className="gap-2" disabled={Object.values(loading).some(Boolean)}>
+          <Brain className="w-4 h-4" />
+          Analisar com Todas as Personas
+        </Button>
+>>>>>>> parent of bc3d295 (feat: salvar saidas de analise de personas no banco e exibir ultima saida)
       </div>
 
       <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
@@ -304,6 +319,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
           </TabsContent>
         ))}
       </Tabs>
+<<<<<<< HEAD
 
       {ultimaSaida && (ultimaSaida.auditor_text || ultimaSaida.consultor_text || ultimaSaida.orcamentario_text || ultimaSaida.caracteristicas_proposta_text) && (
         <Collapsible defaultOpen={false} className="rounded-xl border bg-muted/30">
@@ -366,6 +382,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
           </CollapsibleContent>
         </Collapsible>
       )}
+=======
+>>>>>>> parent of bc3d295 (feat: salvar saidas de analise de personas no banco e exibir ultima saida)
     </div>
   );
 }

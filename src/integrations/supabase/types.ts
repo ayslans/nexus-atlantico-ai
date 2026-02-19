@@ -150,6 +150,7 @@ export type Database = {
           },
         ]
       }
+<<<<<<< HEAD
       analise_personas_saidas: {
         Row: {
           id: string
@@ -223,6 +224,8 @@ export type Database = {
           },
         ]
       }
+=======
+>>>>>>> parent of bc3d295 (feat: salvar saidas de analise de personas no banco e exibir ultima saida)
     }
     Views: {
       [_ in never]: never
