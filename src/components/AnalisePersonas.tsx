@@ -67,13 +67,6 @@ const PERSONAS: PersonaConfig[] = [
     description: 'Regras financeiras e contrapartida',
     color: 'border-l-warning',
   },
-  {
-    key: 'caracteristicas',
-    label: 'Caract. da Proposta',
-    icon: <FileText className="w-4 h-4" />,
-    description: 'Formato, critérios e modelo de proposta',
-    color: 'border-l-info',
-  },
 ];
 
 interface UltimaSaida {
@@ -190,8 +183,9 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
         throw new Error('Não autenticado');
       }
 
+      const aiUrl = import.meta.env.VITE_AI_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-personas`,
+        `${aiUrl}/functions/v1/analyze-personas`,
         {
           method: 'POST',
           headers: {
@@ -228,6 +222,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     for (const persona of PERSONAS) {
       await runAnalysis(persona.key);
     }
+    // Também executa a análise de características
+    await runAnalysis('caracteristicas');
   }, [runAnalysis]);
 
   const fetchUltimaSaida = useCallback(async () => {
@@ -287,8 +283,9 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
         throw new Error('Não autenticado');
       }
 
+      const aiUrl = import.meta.env.VITE_AI_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-proposal-model`,
+        `${aiUrl}/functions/v1/generate-proposal-model`,
         {
           method: 'POST',
           headers: {
@@ -711,7 +708,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PersonaKey)}>
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-3">
           {PERSONAS.map(p => (
             <TabsTrigger key={p.key} value={p.key} className="gap-2 text-xs sm:text-sm">
               {p.icon}
@@ -779,6 +776,42 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
           </TabsContent>
         ))}
       </Tabs>
+
+      {/* Seção de Características e Modelo de Proposta - Sempre visível abaixo das tabs */}
+      <Card className="border-l-4 border-l-blue-500 overflow-hidden">
+        <CardHeader className="pb-3 bg-blue-50/50 dark:bg-blue-950/20">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <FileText className="w-5 h-5 text-blue-500" />
+                Características & Modelo de Proposta
+              </CardTitle>
+              <CardDescription>Análise de formato, critérios e construção do modelo estruturado</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => runAnalysis('caracteristicas')}
+                disabled={loading.caracteristicas}
+                className="gap-2"
+              >
+                {loading.caracteristicas ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : analyses.caracteristicas ? (
+                  <RefreshCw className="w-4 h-4" />
+                ) : (
+                  <Brain className="w-4 h-4" />
+                )}
+                {loading.caracteristicas ? 'Analisando...' : 'Analisar Texto'}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          {renderCaracteristicasContent()}
+        </CardContent>
+      </Card>
 
       {ultimaSaida && (ultimaSaida.auditor_text || ultimaSaida.consultor_text || ultimaSaida.orcamentario_text || ultimaSaida.caracteristicas_proposta_text) && (
         <Collapsible defaultOpen={false} className="rounded-xl border bg-muted/30">
