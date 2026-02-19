@@ -166,10 +166,11 @@ serve(async (req) => {
     }
 
     const { persona, criteriosText, editalNome } = await req.json();
+    console.log(`Received request for persona: "${persona}"`);
 
     if (!persona || !PERSONAS[persona as keyof typeof PERSONAS]) {
       return new Response(
-        JSON.stringify({ error: 'Invalid persona. Use: auditor, consultor, orcamentario' }),
+        JSON.stringify({ error: `Invalid persona: ${persona}. Use: auditor, consultor, orcamentario, caracteristicas` }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
