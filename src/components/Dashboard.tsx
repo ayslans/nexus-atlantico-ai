@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows } from 'lucide-react';
+import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows, Sparkles } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { UploadZone } from './UploadZone';
 import { EditalCard } from './EditalCard';
@@ -373,42 +374,75 @@ export function Dashboard() {
             <Button onClick={() => setUploadDialogOpen(true)} className="gap-2"><Plus className="w-4 h-4" />Enviar Edital</Button>
           </div>
         ) : (
-          <div className="space-y-3 animate-fade-in">
-            {editais.map((edital) => {
-              const editalCriterios = criterios[edital.id] || [];
-              const uniqueTags = [...new Set(editalCriterios.flatMap(c => c.tags || []))];
-              return (
-                <EditalCard
-                  key={edital.id}
-                  edital={edital}
-                  criteriosCount={editalCriterios.length}
-                  attachmentsCount={attachmentCounts[edital.id] || 0}
-                  tags={uniqueTags}
-                  onSelect={() => setSelectedEdital(edital)}
-                  onAnalyze={() => setAnalyzeEdital(edital)}
-                  onReprocess={() => handleFullReextract(edital)}
-                  onRename={(newName) => handleRename(edital, newName)}
-                  onRefreshCount={() => handleRefreshCount(edital.id)}
-                  onAddFile={() => { setAddFileEdital(edital); setAddFileDialogOpen(true); }}
-                  onDelete={() => { setEditalToDelete(edital); setDeleteDialogOpen(true); }}
-                  onAddTag={async (tag) => {
-                    // Add tag to all criterios of this edital that don't already have it
-                    const targets = editalCriterios.filter(c => !(c.tags || []).includes(tag));
-                    for (const c of targets) {
-                      await supabase.from('criterios').update({ tags: [...(c.tags || []), tag] }).eq('id', c.id);
-                    }
-                    // If no criterios exist but edital is complete, show message
-                    if (editalCriterios.length === 0) {
-                      toast({ title: 'Nenhum critério encontrado', description: 'Extraia os critérios primeiro.', variant: 'destructive' });
-                      return;
-                    }
-                    toast({ title: `Tag "${tag}" adicionada a ${targets.length} critério(s)` });
-                    fetchCriterios([edital.id]);
-                  }}
-                />
-              );
-            })}
-          </div>
+          <>
+            {/* Novo: Banner de destaque para a funcionalidade de proposta */}
+            {editais.some(e => e.status === 'concluido') && (
+              <div className="mb-6 animate-in slide-in-from-top duration-500">
+                <Card className="border-primary/20 bg-primary/5 shadow-sm">
+                  <CardContent className="p-4 flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <Sparkles className="w-5 h-5 text-primary animate-pulse" />
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-primary">Novo Recurso: Gerador de Modelo de Proposta!</h4>
+                      <p className="text-xs text-muted-foreground">
+                        Agora você pode gerar uma estrutura completa de proposta técnica baseada nos critérios do edital.
+                        Clique no ícone de <Sparkles className="inline w-3 h-3 mx-0.5" /> nos editais concluídos para acessar.
+                      </p>
+                    </div>
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="text-primary text-xs"
+                      onClick={() => {
+                        const firstConcluido = editais.find(e => e.status === 'concluido');
+                        if (firstConcluido) setAnalyzeEdital(firstConcluido);
+                      }}
+                    >
+                      Experimentar agora
+                    </Button>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            <div className="space-y-3 animate-fade-in">
+              {editais.map((edital) => {
+                const editalCriterios = criterios[edital.id] || [];
+                const uniqueTags = [...new Set(editalCriterios.flatMap(c => c.tags || []))];
+                return (
+                  <EditalCard
+                    key={edital.id}
+                    edital={edital}
+                    criteriosCount={editalCriterios.length}
+                    attachmentsCount={attachmentCounts[edital.id] || 0}
+                    tags={uniqueTags}
+                    onSelect={() => setSelectedEdital(edital)}
+                    onAnalyze={() => setAnalyzeEdital(edital)}
+                    onReprocess={() => handleFullReextract(edital)}
+                    onRename={(newName) => handleRename(edital, newName)}
+                    onRefreshCount={() => handleRefreshCount(edital.id)}
+                    onAddFile={() => { setAddFileEdital(edital); setAddFileDialogOpen(true); }}
+                    onDelete={() => { setEditalToDelete(edital); setDeleteDialogOpen(true); }}
+                    onAddTag={async (tag) => {
+                      // Add tag to all criterios of this edital that don't already have it
+                      const targets = editalCriterios.filter(c => !(c.tags || []).includes(tag));
+                      for (const c of targets) {
+                        await supabase.from('criterios').update({ tags: [...(c.tags || []), tag] }).eq('id', c.id);
+                      }
+                      // If no criterios exist but edital is complete, show message
+                      if (editalCriterios.length === 0) {
+                        toast({ title: 'Nenhum critério encontrado', description: 'Extraia os critérios primeiro.', variant: 'destructive' });
+                        return;
+                      }
+                      toast({ title: `Tag "${tag}" adicionada a ${targets.length} critério(s)` });
+                      fetchCriterios([edital.id]);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </>
         )}
       </main>
 
