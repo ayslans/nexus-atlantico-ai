@@ -510,16 +510,26 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                   const items = checklist.filter(i => i.categoria === categoria);
                   if (items.length === 0) return null;
 
+                  const categoriaIcons: Record<string, React.ReactNode> = {
+                    documento: <FileText className="w-4 h-4" />,
+                    conteudo: <FileCheck className="w-4 h-4" />,
+                    formato: <Sparkles className="w-4 h-4" />,
+                    prazo: <History className="w-4 h-4" />
+                  };
+
                   const categoriaLabels: Record<string, string> = {
-                    documento: '📄 Documentos',
-                    conteudo: '📝 Conteúdo',
-                    formato: '📐 Formato',
-                    prazo: '⏰ Prazos'
+                    documento: 'Documentos',
+                    conteudo: 'Conteúdo',
+                    formato: 'Formatação',
+                    prazo: 'Prazos'
                   };
 
                   return (
                     <div key={categoria}>
-                      <h4 className="text-sm font-medium mb-2">{categoriaLabels[categoria]}</h4>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        {categoriaIcons[categoria]}
+                        {categoriaLabels[categoria]}
+                      </h4>
                       <div className="space-y-2">
                         {items.map(item => (
                           <div
@@ -587,7 +597,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
               <ul className="space-y-2">
                 {proposalModel.dicas_estrategicas.map((dica, idx) => (
                   <li key={idx} className="flex items-start gap-2 text-sm">
-                    <span className="text-amber-500">💡</span>
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                     {dica}
                   </li>
                 ))}
@@ -701,14 +711,14 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
         </div>
       </div>
 
-      <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
-        <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
-          <Brain className="w-6 h-6 text-primary-foreground" />
+      <div className="flex items-center gap-4 p-5 rounded-xl bg-card border shadow-sm">
+        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
+          <Brain className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold">Análise por Personas — {edital.nome}</h2>
+          <h2 className="text-xl font-semibold tracking-tight">Análise Estratégica — {edital.nome}</h2>
           <p className="text-sm text-muted-foreground">
-            4 perspectivas de IA aplicadas a {criterios.length} critério{criterios.length !== 1 ? 's' : ''}
+            Critéria avaliados sob {criterios.length} perspectiva{criterios.length !== 1 ? 's' : ''} de conformidade
           </p>
         </div>
       </div>
@@ -720,7 +730,7 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
               {p.icon}
               <span className="hidden sm:inline">{p.label}</span>
               <span className="sm:hidden">{p.label.split(' ')[0]}</span>
-              {analyses[p.key] && <Badge variant="secondary" className="ml-1 h-5 w-5 p-0 justify-center text-[10px]">✓</Badge>}
+              {analyses[p.key] && <CheckCircle2 className="ml-1 h-3.5 w-3.5 text-primary" />}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -784,15 +794,17 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       </Tabs>
 
       {/* Seção de Características e Modelo de Proposta - Sempre visível abaixo das tabs */}
-      <Card className="border-l-4 border-l-blue-500 overflow-hidden">
-        <CardHeader className="pb-3 bg-blue-50/50 dark:bg-blue-950/20">
+      <Card className="border shadow-md overflow-hidden bg-card/50 backdrop-blur-sm">
+        <CardHeader className="pb-3 border-b bg-muted/30">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <FileText className="w-5 h-5 text-blue-500" />
-                Características & Modelo de Proposta
+              <CardTitle className="flex items-center gap-2 text-lg font-bold tracking-tight">
+                <FileText className="w-5 h-5 text-primary" />
+                Matriz de Elaboração & Modelo de Proposta
               </CardTitle>
-              <CardDescription>Análise de formato, critérios e construção do modelo estruturado</CardDescription>
+              <CardDescription className="text-xs uppercase tracking-widest font-medium opacity-70">
+                Diretrizes estruturadas e checklist de conformidade técnica
+              </CardDescription>
             </div>
             <div className="flex gap-2">
               <Button
