@@ -139,42 +139,42 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
   };
 
   return (
-    <div className="space-y-6 animate-fade-in h-full flex flex-col">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in h-full flex flex-col">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} className="gap-2">
+        <Button variant="ghost" onClick={onBack} className="gap-2 text-sm sm:text-base">
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
       </div>
 
-      <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
-        <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
-          <FileText className="w-6 h-6 text-primary-foreground" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-muted/50">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl gradient-primary flex items-center justify-center flex-shrink-0">
+          <FileText className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
         </div>
-        <div className="flex-1">
-          <h2 className="text-xl font-semibold">{edital.nome}</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg sm:text-xl font-semibold truncate">{edital.nome}</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             {filteredCriterios.length} critério{filteredCriterios.length !== 1 ? 's' : ''} {filterTag ? `com tag "${filterTag}"` : 'encontrado' + (filteredCriterios.length !== 1 ? 's' : '')}
             {attachmentsCount > 0 && (
-              <span className="ml-2 text-primary">• {attachmentsCount + 1} arquivo{attachmentsCount > 0 ? 's' : ''} no total</span>
+              <span className="ml-1 sm:ml-2 text-primary">• {attachmentsCount + 1} arquivo{attachmentsCount > 0 ? 's' : ''} no total</span>
             )}
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="default" size="sm" onClick={handleUpdateCriterios} disabled={isUpdatingCriterios} className="gap-2">
-            {isUpdatingCriterios ? (<><Loader2 className="w-4 h-4 animate-spin" />Atualizando...</>) : (<><RefreshCw className="w-4 h-4" />Atualizar Critérios</>)}
+        <div className="flex gap-2 flex-wrap">
+          <Button variant="default" size="sm" onClick={handleUpdateCriterios} disabled={isUpdatingCriterios} className="gap-2 text-xs sm:text-sm flex-1 sm:flex-initial">
+            {isUpdatingCriterios ? (<><Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /><span className="hidden xs:inline">Atualizando...</span><span className="xs:hidden">...</span></>) : (<><RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" /><span className="hidden sm:inline">Atualizar Critérios</span><span className="sm:hidden">Atualizar</span></>)}
           </Button>
-          <Button variant="outline" size="sm" onClick={copyAll} className="gap-2" disabled={criterios.length === 0}>
-            <Copy className="w-4 h-4" />Copiar Todos
+          <Button variant="outline" size="sm" onClick={copyAll} className="gap-2 text-xs sm:text-sm flex-1 sm:flex-initial" disabled={criterios.length === 0}>
+            <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" /><span className="hidden sm:inline">Copiar Todos</span><span className="sm:hidden">Copiar</span>
           </Button>
         </div>
       </div>
 
       {/* Tag filter bar */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5 sm:gap-2">
         <Badge
           variant={filterTag === null ? 'default' : 'outline'}
-          className="cursor-pointer"
+          className="cursor-pointer text-[10px] sm:text-xs px-2 sm:px-3"
           onClick={() => setFilterTag(null)}
         >
           Todos
@@ -183,7 +183,7 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
           <Badge
             key={tag}
             variant={filterTag === tag ? 'default' : 'outline'}
-            className={`cursor-pointer ${filterTag === tag ? '' : TAG_COLORS[tag] || ''}`}
+            className={`cursor-pointer text-[10px] sm:text-xs px-2 sm:px-3 ${filterTag === tag ? '' : TAG_COLORS[tag] || ''}`}
             onClick={() => setFilterTag(filterTag === tag ? null : tag)}
           >
             {tag}
@@ -191,7 +191,7 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
         ))}
       </div>
 
-      <ScrollArea className="h-[calc(100vh-420px)]">
+      <ScrollArea className="h-[calc(100vh-380px)] sm:h-[calc(100vh-420px)]">
         <div className="space-y-8 pr-4">
           {Object.entries(groupedCriterios).map(([section, sectionCriterios]) => (
             <div key={section} className="space-y-4">
@@ -205,28 +205,28 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
                     const tags = getTagsForCriterio(criterio);
                     return (
                       <Card key={criterio.id} className="group hover:shadow-card transition-shadow">
-                        <CardHeader className="pb-2">
+                        <CardHeader className="pb-2 px-3 sm:px-6">
                           <div className="flex items-start justify-between gap-2">
-                            <CardTitle className="text-base font-medium">
+                            <CardTitle className="text-sm sm:text-base font-medium break-words">
                               {criterio.titulo || `Critério ${criterio.ordem}`}
                             </CardTitle>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => copyToClipboard(criterio)}>
-                              {copiedId === criterio.id ? <CheckCircle className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                            <Button variant="ghost" size="icon" className="h-7 w-7 sm:h-8 sm:w-8 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0" onClick={() => copyToClipboard(criterio)}>
+                              {copiedId === criterio.id ? <CheckCircle className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-green-600" /> : <Copy className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
                             </Button>
                           </div>
                         </CardHeader>
-                        <CardContent>
-                          <p className="text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground">
+                        <CardContent className="px-3 sm:px-6">
+                          <p className="text-xs sm:text-sm whitespace-pre-wrap leading-relaxed text-muted-foreground break-words">
                             {criterio.conteudo}
                           </p>
                           {/* Tags */}
-                          <div className="mt-4 pt-3 border-t space-y-2">
-                            <div className="flex flex-wrap gap-1.5 items-center">
+                          <div className="mt-3 sm:mt-4 pt-2 sm:pt-3 border-t space-y-2">
+                            <div className="flex flex-wrap gap-1 sm:gap-1.5 items-center">
                               {tags.map(tag => (
                                 <Badge
                                   key={tag}
                                   variant="outline"
-                                  className={`text-xs ${TAG_COLORS[tag] || ''} cursor-pointer`}
+                                  className={`text-[10px] sm:text-xs px-1.5 sm:px-2 ${TAG_COLORS[tag] || ''} cursor-pointer`}
                                   onClick={() => removeTag(criterio.id, tag)}
                                   title="Clique para remover"
                                 >
@@ -235,7 +235,7 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
                               ))}
                               {ALL_TAGS.filter(t => !tags.includes(t)).length > 0 && (
                                 <select
-                                  className="text-xs border rounded px-1 py-0.5 bg-background text-foreground"
+                                  className="text-[10px] sm:text-xs border rounded px-1 sm:px-1.5 py-0.5 bg-background text-foreground"
                                   value=""
                                   onClick={(e) => e.stopPropagation()}
                                   onChange={(e) => {
@@ -252,12 +252,12 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
                               )}
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-2">
+                            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
                               {editingTagFor === criterio.id ? (
                                 <>
                                   <input
-                                    className="h-7 px-2 py-1 rounded-md border bg-background text-xs outline-none focus:ring-2 focus:ring-primary/40"
-                                    placeholder="Nova tag personalizada..."
+                                    className="h-6 sm:h-7 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md border bg-background text-[10px] sm:text-xs outline-none focus:ring-2 focus:ring-primary/40 flex-1 min-w-0"
+                                    placeholder="Nova tag..."
                                     value={newTagValue}
                                     onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => setNewTagValue(e.target.value)}
@@ -275,7 +275,7 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    className="h-7 px-2 text-xs"
+                                    className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       addCustomTag(criterio.id);
@@ -286,7 +286,7 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
                                   <Button
                                     variant="ghost"
                                     size="sm"
-                                    className="h-7 px-2 text-xs"
+                                    className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       setEditingTagFor(null);
@@ -300,7 +300,7 @@ export function CriteriosList({ edital, criterios, onBack, onCriteriosUpdated, o
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  className="h-7 px-2 text-xs text-muted-foreground hover:text-primary"
+                                  className="h-6 sm:h-7 px-1.5 sm:px-2 text-[10px] sm:text-xs text-muted-foreground hover:text-primary"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setEditingTagFor(criterio.id);

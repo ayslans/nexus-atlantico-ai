@@ -393,36 +393,38 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       return (
         <div className="space-y-6">
           {/* Header do Modelo de Proposta */}
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-lg font-semibold flex items-center gap-2">
-                <FileCheck className="w-5 h-5 text-primary" />
-                Modelo de Proposta Gerado
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <h3 className="text-base sm:text-lg font-semibold flex items-center gap-2">
+                <FileCheck className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
+                <span className="truncate">Modelo de Proposta Gerado</span>
               </h3>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs sm:text-sm text-muted-foreground truncate">
                 Estrutura otimizada para {edital.nome}
               </p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => setShowProposalBuilder(false)}>
-              Ver Análise
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={() => {
-                if (confirm('Tem certeza que deseja apagar o modelo atual e gerar um novo?')) {
-                  localStorage.removeItem(`proposal_model_${edital.id}`);
-                  setProposalModel(null);
-                  setChecklist([]);
-                  setShowProposalBuilder(false);
-                  generateProposalModel();
-                }
-              }}
-              className="gap-2"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Regerar
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" className="text-xs sm:text-sm flex-1 sm:flex-initial" onClick={() => setShowProposalBuilder(false)}>
+                Ver Análise
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (confirm('Tem certeza que deseja apagar o modelo atual e gerar um novo?')) {
+                    localStorage.removeItem(`proposal_model_${edital.id}`);
+                    setProposalModel(null);
+                    setChecklist([]);
+                    setShowProposalBuilder(false);
+                    generateProposalModel();
+                  }
+                }}
+                className="gap-2 text-xs sm:text-sm flex-1 sm:flex-initial"
+              >
+                <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                Regerar
+              </Button>
+            </div>
           </div>
 
           {/* Progresso do Checklist */}
@@ -613,8 +615,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
             <CardContent>
               <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {proposalModel.anexos_necessarios.map((anexo, idx) => (
-                  <li key={idx} className="flex items-center gap-2 text-sm p-2 rounded-lg bg-muted/30">
-                    <Circle className="w-2 h-2 text-primary" />
+                  <li key={idx} className="flex items-center gap-2 text-xs sm:text-sm p-2 rounded-lg bg-muted/30 break-words">
+                    <Circle className="w-2 h-2 text-primary flex-shrink-0" />
                     {anexo}
                   </li>
                 ))}
@@ -635,8 +637,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
           </div>
         ) : analyses.caracteristicas ? (
           <div className="space-y-4">
-            <ScrollArea className="h-[calc(100vh-540px)]">
-              <div className="prose prose-sm dark:prose-invert max-w-none pr-4">
+            <ScrollArea className="h-[calc(100vh-500px)] sm:h-[calc(100vh-540px)]">
+              <div className="prose prose-sm dark:prose-invert max-w-none pr-2 sm:pr-4">
                 <ReactMarkdown>{analyses.caracteristicas}</ReactMarkdown>
               </div>
             </ScrollArea>
@@ -646,10 +648,10 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                 <Button
                   onClick={() => setShowProposalBuilder(true)}
                   variant="outline"
-                  className="w-full gap-2 border-primary text-primary hover:bg-primary/5"
-                  size="lg"
+                  className="w-full gap-2 border-primary text-primary hover:bg-primary/5 text-xs sm:text-sm"
+                  size="sm"
                 >
-                  <FileCheck className="w-4 h-4" />
+                  <FileCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                   Ver Modelo de Proposta Existente
                 </Button>
               ) : null}
@@ -657,22 +659,24 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
               <Button
                 onClick={generateProposalModel}
                 disabled={generatingProposal}
-                className="w-full gap-2"
-                size="lg"
+                className="w-full gap-2 text-xs sm:text-sm"
+                size="sm"
               >
                 {generatingProposal ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Gerando Modelo de Proposta...
+                    <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
+                    <span className="hidden sm:inline">Gerando Modelo de Proposta...</span>
+                    <span className="sm:hidden">Gerando...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4" />
-                    {proposalModel ? 'Regerar Modelo de Proposta Completo' : 'Gerar Modelo de Proposta Completo'}
+                    <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                    <span className="hidden sm:inline">{proposalModel ? 'Regerar Modelo de Proposta Completo' : 'Gerar Modelo de Proposta Completo'}</span>
+                    <span className="sm:hidden">{proposalModel ? 'Regerar Modelo' : 'Gerar Modelo'}</span>
                   </>
                 )}
               </Button>
-              <p className="text-xs text-muted-foreground text-center mt-2">
+              <p className="text-[10px] sm:text-xs text-muted-foreground text-center mt-2 px-2">
                 A IA irá criar uma estrutura detalhada de proposta com checklist interativo
               </p>
             </div>
@@ -688,49 +692,51 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} className="gap-2">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-2">
+        <Button variant="ghost" onClick={onBack} className="gap-2 text-sm sm:text-base w-fit">
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
-        <div className="flex gap-2">
-          <Button onClick={runAllAnalyses} className="gap-2" disabled={Object.values(loading).some(Boolean)}>
-            <Brain className="w-4 h-4" />
-            Analisar com Todas as Personas
+        <div className="flex gap-2 flex-wrap">
+          <Button onClick={runAllAnalyses} className="gap-2 text-xs sm:text-sm" size="sm" disabled={Object.values(loading).some(Boolean)}>
+            <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Analisar com Todas as Personas</span>
+            <span className="sm:hidden">Analisar Todas</span>
           </Button>
           <Button
             variant="outline"
             onClick={handleSave}
-            className="gap-2"
+            className="gap-2 text-xs sm:text-sm"
+            size="sm"
             disabled={saving || !(analyses.auditor || analyses.consultor || analyses.orcamentario || analyses.caracteristicas)}
           >
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" /> : <Save className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
             Salvar
           </Button>
         </div>
       </div>
 
-      <div className="flex items-center gap-4 p-5 rounded-xl bg-card border shadow-sm">
-        <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20">
-          <Brain className="w-6 h-6 text-primary" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-5 rounded-xl bg-card border shadow-sm">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 flex-shrink-0">
+          <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-primary" />
         </div>
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Análise Estratégica — {edital.nome}</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-semibold tracking-tight truncate">Análise Estratégica — {edital.nome}</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Critéria avaliados sob {criterios.length} perspectiva{criterios.length !== 1 ? 's' : ''} de conformidade
           </p>
         </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as PersonaKey)}>
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-3 h-auto">
           {PERSONAS.map(p => (
-            <TabsTrigger key={p.key} value={p.key} className="gap-2 text-xs sm:text-sm">
-              {p.icon}
+            <TabsTrigger key={p.key} value={p.key} className="gap-1 sm:gap-2 text-[10px] sm:text-xs md:text-sm px-2 sm:px-3 py-2">
+              <span className="hidden xs:inline">{p.icon}</span>
               <span className="hidden sm:inline">{p.label}</span>
-              <span className="sm:hidden">{p.label.split(' ')[0]}</span>
-              {analyses[p.key] && <CheckCircle2 className="ml-1 h-3.5 w-3.5 text-primary" />}
+              <span className="sm:hidden text-[10px]">{p.label.split(' ')[0]}</span>
+              {analyses[p.key] && <CheckCircle2 className="ml-0.5 sm:ml-1 h-3 w-3 sm:h-3.5 sm:w-3.5 text-primary flex-shrink-0" />}
             </TabsTrigger>
           ))}
         </TabsList>
@@ -738,14 +744,14 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
         {PERSONAS.map(p => (
           <TabsContent key={p.key} value={p.key}>
             <Card className={`border-l-4 ${p.color}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-lg">
+              <CardHeader className="pb-3 px-3 sm:px-6">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="min-w-0">
+                    <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                       {p.icon}
-                      {p.label}
+                      <span className="truncate">{p.label}</span>
                     </CardTitle>
-                    <p className="text-sm text-muted-foreground mt-1">{p.description}</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-1">{p.description}</p>
                   </div>
                   {p.key !== 'caracteristicas' || !showProposalBuilder ? (
                     <Button
@@ -753,21 +759,21 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                       size="sm"
                       onClick={() => runAnalysis(p.key)}
                       disabled={loading[p.key]}
-                      className="gap-2"
+                      className="gap-2 text-xs sm:text-sm w-full sm:w-auto"
                     >
                       {loading[p.key] ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                       ) : analyses[p.key] ? (
-                        <RefreshCw className="w-4 h-4" />
+                        <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       ) : (
-                        <Brain className="w-4 h-4" />
+                        <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                       )}
                       {loading[p.key] ? 'Analisando...' : analyses[p.key] ? 'Reanalisar' : 'Analisar'}
                     </Button>
                   ) : null}
                 </div>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-3 sm:px-6">
                 {p.key === 'caracteristicas' ? (
                   renderCaracteristicasContent()
                 ) : loading[p.key] ? (
@@ -776,8 +782,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                     <p className="text-sm text-muted-foreground">Analisando com {p.label}...</p>
                   </div>
                 ) : analyses[p.key] ? (
-                  <ScrollArea className="h-[calc(100vh-440px)]">
-                    <div className="prose prose-sm dark:prose-invert max-w-none pr-4">
+                  <ScrollArea className="h-[calc(100vh-400px)] sm:h-[calc(100vh-440px)]">
+                    <div className="prose prose-sm dark:prose-invert max-w-none pr-2 sm:pr-4">
                       <ReactMarkdown>{analyses[p.key]}</ReactMarkdown>
                     </div>
                   </ScrollArea>
@@ -795,14 +801,14 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
 
       {/* Seção de Características e Modelo de Proposta - Sempre visível abaixo das tabs */}
       <Card className="border shadow-md overflow-hidden bg-card/50 backdrop-blur-sm">
-        <CardHeader className="pb-3 border-b bg-muted/30">
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-lg font-bold tracking-tight">
-                <FileText className="w-5 h-5 text-primary" />
-                Matriz de Elaboração & Modelo de Proposta
+        <CardHeader className="pb-3 border-b bg-muted/30 px-3 sm:px-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="min-w-0">
+              <CardTitle className="flex items-center gap-2 text-base sm:text-lg font-bold tracking-tight">
+                <FileText className="w-4 h-4 sm:w-5 sm:h-5 text-primary flex-shrink-0" />
+                <span className="truncate">Matriz de Elaboração & Modelo de Proposta</span>
               </CardTitle>
-              <CardDescription className="text-xs uppercase tracking-widest font-medium opacity-70">
+              <CardDescription className="text-[10px] sm:text-xs uppercase tracking-widest font-medium opacity-70">
                 Diretrizes estruturadas e checklist de conformidade técnica
               </CardDescription>
             </div>
@@ -812,21 +818,21 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
                 size="sm"
                 onClick={() => runAnalysis('caracteristicas')}
                 disabled={loading.caracteristicas}
-                className="gap-2"
+                className="gap-2 text-xs sm:text-sm w-full sm:w-auto"
               >
                 {loading.caracteristicas ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-spin" />
                 ) : analyses.caracteristicas ? (
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 ) : (
-                  <Brain className="w-4 h-4" />
+                  <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 )}
                 {loading.caracteristicas ? 'Analisando...' : 'Analisar Texto'}
               </Button>
             </div>
           </div>
         </CardHeader>
-        <CardContent className="pt-6">
+        <CardContent className="pt-4 sm:pt-6 px-3 sm:px-6">
           {renderCaracteristicasContent()}
         </CardContent>
       </Card>

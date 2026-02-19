@@ -267,7 +267,7 @@ export function Dashboard() {
   if (analyzeEdital) {
     return (
       <div className="min-h-screen gradient-hero">
-        <div className="container max-w-4xl py-8 px-4">
+        <div className="container max-w-4xl py-4 sm:py-8 px-3 sm:px-4">
           <AnalisePersonas edital={analyzeEdital} criterios={criterios[analyzeEdital.id] || []} onBack={() => setAnalyzeEdital(null)} />
         </div>
       </div>
@@ -277,7 +277,7 @@ export function Dashboard() {
   if (showCompare) {
     return (
       <div className="min-h-screen gradient-hero">
-        <div className="container max-w-6xl py-8 px-4">
+        <div className="container max-w-6xl py-4 sm:py-8 px-3 sm:px-4">
           <CompareEditais editais={editais} criterios={criterios} onBack={() => setShowCompare(false)} />
         </div>
       </div>
@@ -287,7 +287,7 @@ export function Dashboard() {
   if (showSearch) {
     return (
       <div className="min-h-screen gradient-hero">
-        <div className="container max-w-4xl py-8 px-4">
+        <div className="container max-w-4xl py-4 sm:py-8 px-3 sm:px-4">
           <SearchCriterios editais={editais} criterios={criterios} onBack={() => setShowSearch(false)} />
         </div>
       </div>
@@ -297,7 +297,7 @@ export function Dashboard() {
   if (selectedEdital) {
     return (
       <div className="min-h-screen gradient-hero">
-        <div className="container max-w-4xl py-8 px-4">
+        <div className="container max-w-4xl py-4 sm:py-8 px-3 sm:px-4">
           <CriteriosList
             edital={selectedEdital}
             criterios={criterios[selectedEdital.id] || []}
@@ -317,41 +317,41 @@ export function Dashboard() {
   return (
     <div className="min-h-screen gradient-hero">
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-16 items-center justify-between px-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
-              <FileSearch className="w-5 h-5 text-primary-foreground" />
+        <div className="container flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl gradient-primary flex items-center justify-center flex-shrink-0">
+              <FileSearch className="w-4 h-4 sm:w-5 sm:h-5 text-primary-foreground" />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold">ETL Editais</h1>
-              <p className="text-xs text-muted-foreground">Extração de Critérios</p>
+            <div className="min-w-0">
+              <h1 className="text-base sm:text-lg font-semibold truncate">ETL Editais</h1>
+              <p className="text-[10px] sm:text-xs text-muted-foreground hidden xs:block">Extração de Critérios</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground hidden sm:inline">{user?.email}</span>
-            <Button variant="ghost" size="icon" onClick={signOut}><LogOut className="w-4 h-4" /></Button>
+          <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
+            <span className="text-xs sm:text-sm text-muted-foreground hidden md:inline truncate max-w-[150px]">{user?.email}</span>
+            <Button variant="ghost" size="icon" className="h-8 w-8 sm:h-9 sm:w-9" onClick={signOut}><LogOut className="w-4 h-4" /></Button>
           </div>
         </div>
       </header>
 
-      <main className="container max-w-4xl py-8 px-4">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h2 className="text-2xl font-semibold">Seus Editais</h2>
-            <p className="text-muted-foreground">Faça upload de editais PDF para extrair critérios de seleção</p>
+      <main className="container max-w-4xl py-4 sm:py-8 px-3 sm:px-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-semibold">Seus Editais</h2>
+            <p className="text-sm sm:text-base text-muted-foreground">Faça upload de editais PDF para extrair critérios de seleção</p>
           </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" className="gap-2" onClick={() => setShowCompare(true)} disabled={editais.filter(e => e.status === 'concluido').length < 2}>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button variant="outline" size="sm" className="gap-2 text-xs sm:text-sm" onClick={() => setShowCompare(true)} disabled={editais.filter(e => e.status === 'concluido').length < 2}>
               <GitCompareArrows className="w-4 h-4" /><span className="hidden sm:inline">Comparar</span>
             </Button>
-            <Button variant="outline" className="gap-2" onClick={() => setShowSearch(true)} disabled={editais.length === 0}>
+            <Button variant="outline" size="sm" className="gap-2 text-xs sm:text-sm" onClick={() => setShowSearch(true)} disabled={editais.length === 0}>
               <Search className="w-4 h-4" /><span className="hidden sm:inline">Buscar</span>
             </Button>
             <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2"><Plus className="w-4 h-4" />Novo Edital</Button>
+                <Button size="sm" className="gap-2 text-xs sm:text-sm"><Plus className="w-4 h-4" /><span className="hidden xs:inline">Novo Edital</span><span className="xs:hidden">Novo</span></Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-lg">
+              <DialogContent className="sm:max-w-lg mx-3">
                 <DialogHeader><DialogTitle>Enviar Novo Edital</DialogTitle></DialogHeader>
                 <UploadZone onUploadComplete={handleUploadComplete} />
               </DialogContent>
@@ -364,13 +364,13 @@ export function Dashboard() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         ) : editais.length === 0 ? (
-          <div className="text-center py-20 animate-fade-in">
-            <div className="w-20 h-20 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
-              <FileText className="w-10 h-10 text-muted-foreground" />
+          <div className="text-center py-12 sm:py-20 animate-fade-in">
+            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-muted flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 sm:w-10 sm:h-10 text-muted-foreground" />
             </div>
-            <h3 className="text-xl font-medium mb-2">Nenhum edital ainda</h3>
-            <p className="text-muted-foreground mb-6">Envie seu primeiro edital para extrair os critérios de seleção</p>
-            <Button onClick={() => setUploadDialogOpen(true)} className="gap-2"><Plus className="w-4 h-4" />Enviar Edital</Button>
+            <h3 className="text-lg sm:text-xl font-medium mb-2">Nenhum edital ainda</h3>
+            <p className="text-sm sm:text-base text-muted-foreground mb-6 px-4">Envie seu primeiro edital para extrair os critérios de seleção</p>
+            <Button onClick={() => setUploadDialogOpen(true)} className="gap-2" size="sm"><Plus className="w-4 h-4" />Enviar Edital</Button>
           </div>
         ) : (
           <div className="space-y-3 animate-fade-in">
@@ -413,8 +413,8 @@ export function Dashboard() {
       </main>
 
       <Dialog open={addFileDialogOpen} onOpenChange={(open) => { setAddFileDialogOpen(open); if (!open) setAddFileEdital(null); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader><DialogTitle>Adicionar Arquivo a "{addFileEdital?.nome}"</DialogTitle></DialogHeader>
+        <DialogContent className="sm:max-w-lg mx-3">
+          <DialogHeader><DialogTitle className="text-base sm:text-lg">Adicionar Arquivo a "{addFileEdital?.nome}"</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">Selecione um arquivo PDF para anexar a este edital.</p>
             <input
