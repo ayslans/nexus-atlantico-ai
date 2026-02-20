@@ -138,7 +138,7 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
       <div
         {...getRootProps()}
         className={`
-          relative border-2 border-dashed rounded-xl p-8 text-center cursor-pointer
+          relative border-2 border-dashed rounded-xl p-4 sm:p-8 text-center cursor-pointer
           transition-all duration-300 ease-in-out
           ${isDragActive ? 'border-primary bg-primary/5 scale-[1.02]' : 'border-border hover:border-primary/50 hover:bg-muted/50'}
           ${uploading ? 'pointer-events-none opacity-75' : ''}
@@ -146,22 +146,22 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
       >
         <input {...getInputProps()} />
         
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-3 sm:gap-4">
           {status === 'idle' && (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
-                <Upload className="w-8 h-8 text-primary" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-primary/10 flex items-center justify-center">
+                <Upload className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
               </div>
               <div>
-                <p className="text-lg font-medium">
+                <p className="text-base sm:text-lg font-medium">
                   {isDragActive ? 'Solte o arquivo aqui' : 'Arraste um edital PDF'}
                 </p>
-                <p className="text-sm text-muted-foreground mt-1">
+                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                   ou clique para selecionar
                 </p>
               </div>
-              <Button variant="outline" size="sm" className="mt-2">
-                <FileText className="w-4 h-4 mr-2" />
+              <Button variant="outline" size="sm" className="mt-2 text-xs sm:text-sm">
+                <FileText className="w-3.5 h-3.5 sm:w-4 sm:h-4 mr-1.5 sm:mr-2" />
                 Selecionar PDF
               </Button>
             </>
@@ -169,44 +169,44 @@ export function UploadZone({ onUploadComplete }: UploadZoneProps) {
 
           {status === 'uploading' && (
             <>
-              <Loader2 className="w-12 h-12 text-primary animate-spin" />
-              <p className="font-medium">Enviando arquivo...</p>
+              <Loader2 className="w-10 h-10 sm:w-12 sm:h-12 text-primary animate-spin" />
+              <p className="font-medium text-sm sm:text-base">Enviando arquivo...</p>
             </>
           )}
 
           {status === 'processing' && (
             <>
-              <div className="w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center animate-pulse-subtle">
-                <FileText className="w-8 h-8 text-primary-foreground" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl gradient-primary flex items-center justify-center animate-pulse-subtle">
+                <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
               </div>
-              <p className="font-medium">Extraindo critérios com IA...</p>
-              <p className="text-sm text-muted-foreground">Isso pode levar alguns segundos</p>
+              <p className="font-medium text-sm sm:text-base">Extraindo critérios com IA...</p>
+              <p className="text-xs sm:text-sm text-muted-foreground">Isso pode levar alguns segundos</p>
             </>
           )}
 
           {status === 'success' && (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-success/10 flex items-center justify-center">
-                <CheckCircle className="w-8 h-8 text-success" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-success/10 flex items-center justify-center">
+                <CheckCircle className="w-6 h-6 sm:w-8 sm:h-8 text-success" />
               </div>
-              <p className="font-medium text-success">Processado com sucesso!</p>
+              <p className="font-medium text-sm sm:text-base text-success">Processado com sucesso!</p>
             </>
           )}
 
           {status === 'error' && (
             <>
-              <div className="w-16 h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
-                <AlertCircle className="w-8 h-8 text-destructive" />
+              <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-destructive/10 flex items-center justify-center">
+                <AlertCircle className="w-6 h-6 sm:w-8 sm:h-8 text-destructive" />
               </div>
-              <p className="font-medium text-destructive">Erro ao processar</p>
+              <p className="font-medium text-sm sm:text-base text-destructive">Erro ao processar</p>
             </>
           )}
         </div>
 
         {progress > 0 && progress < 100 && (
-          <div className="mt-6">
-            <Progress value={progress} className="h-2" />
-            <p className="text-xs text-muted-foreground mt-2">{progress}% concluído</p>
+          <div className="mt-4 sm:mt-6">
+            <Progress value={progress} className="h-1.5 sm:h-2" />
+            <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 sm:mt-2">{progress}% concluído</p>
           </div>
         )}
       </div>

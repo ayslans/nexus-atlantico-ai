@@ -90,21 +90,21 @@ export function CompareEditais({ editais, criterios, onBack }: CompareEditaisPro
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 sm:space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={onBack} className="gap-2">
+        <Button variant="ghost" onClick={onBack} className="gap-2 text-sm sm:text-base">
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
       </div>
 
-      <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/50">
-        <div className="w-12 h-12 rounded-xl gradient-primary flex items-center justify-center">
-          <GitCompareArrows className="w-6 h-6 text-primary-foreground" />
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl bg-muted/50">
+        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl gradient-primary flex items-center justify-center flex-shrink-0">
+          <GitCompareArrows className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
         </div>
-        <div>
-          <h2 className="text-xl font-semibold">Comparar Editais</h2>
-          <p className="text-sm text-muted-foreground">
+        <div className="min-w-0">
+          <h2 className="text-lg sm:text-xl font-semibold">Comparar Editais</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground">
             Selecione 2 ou mais editais para comparar seus critérios lado a lado
           </p>
         </div>
@@ -148,8 +148,8 @@ export function CompareEditais({ editais, criterios, onBack }: CompareEditaisPro
 
       {/* Comparison view */}
       {isComparing && comparisonData && (
-        <ScrollArea className="h-[calc(100vh-480px)]">
-          <div className="space-y-3 pr-4">
+        <ScrollArea className="h-[calc(100vh-440px)] sm:h-[calc(100vh-480px)]">
+          <div className="space-y-3 pr-2 sm:pr-4">
             {comparisonData.map(({ section, columns }) => {
               const isOpen = openSections[section] !== false; // default open
               const totalInSection = columns.reduce((s, c) => s + c.criterios.length, 0);
@@ -161,16 +161,16 @@ export function CompareEditais({ editais, criterios, onBack }: CompareEditaisPro
                   onOpenChange={() => toggleSection(section)}
                 >
                   <CollapsibleTrigger asChild>
-                    <button className="w-full flex items-center gap-2 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
+                    <button className="w-full flex items-center gap-2 p-2 sm:p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors text-left">
                       {isOpen ? (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <ChevronDown className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <ChevronRight className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-muted-foreground shrink-0" />
                       )}
-                      <Badge variant="secondary" className="text-sm font-medium">
+                      <Badge variant="secondary" className="text-xs sm:text-sm font-medium">
                         {section}
                       </Badge>
-                      <span className="text-xs text-muted-foreground ml-auto">
+                      <span className="text-[10px] sm:text-xs text-muted-foreground ml-auto">
                         {totalInSection} critério{totalInSection !== 1 ? 's' : ''}
                       </span>
                     </button>
@@ -178,7 +178,7 @@ export function CompareEditais({ editais, criterios, onBack }: CompareEditaisPro
 
                   <CollapsibleContent>
                     <div
-                      className="grid gap-3 mt-3"
+                      className="grid gap-2 sm:gap-3 mt-2 sm:mt-3"
                       style={{
                         gridTemplateColumns: `repeat(${selectedIds.length}, minmax(0, 1fr))`,
                       }}
@@ -186,28 +186,28 @@ export function CompareEditais({ editais, criterios, onBack }: CompareEditaisPro
                       {columns.map(({ editalId, criterios: sectionCriterios }, colIdx) => (
                         <div
                           key={editalId}
-                          className={`rounded-lg border p-3 space-y-3 ${
+                          className={`rounded-lg border p-2 sm:p-3 space-y-2 sm:space-y-3 ${
                             columnColors[colIdx % columnColors.length]
                           }`}
                         >
-                          <p className="text-xs font-semibold text-muted-foreground truncate">
+                          <p className="text-[10px] sm:text-xs font-semibold text-muted-foreground truncate">
                             {editalMap[editalId]?.nome}
                           </p>
 
                           {sectionCriterios.length === 0 ? (
-                            <p className="text-xs text-muted-foreground italic py-4 text-center">
+                            <p className="text-[10px] sm:text-xs text-muted-foreground italic py-3 sm:py-4 text-center">
                               Sem critérios nesta seção
                             </p>
                           ) : (
                             sectionCriterios.map((c) => (
                               <div
                                 key={c.id}
-                                className="bg-background rounded-md p-3 border text-sm space-y-1"
+                                className="bg-background rounded-md p-2 sm:p-3 border text-xs sm:text-sm space-y-1"
                               >
                                 {c.titulo && (
-                                  <p className="font-medium text-sm">{c.titulo}</p>
+                                  <p className="font-medium text-xs sm:text-sm break-words">{c.titulo}</p>
                                 )}
-                                <p className="text-sm leading-relaxed whitespace-pre-wrap">
+                                <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">
                                   {c.conteudo}
                                 </p>
                               </div>
@@ -225,8 +225,8 @@ export function CompareEditais({ editais, criterios, onBack }: CompareEditaisPro
       )}
 
       {selectedIds.length === 1 && (
-        <div className="text-center py-8">
-          <p className="text-muted-foreground text-sm">
+        <div className="text-center py-6 sm:py-8">
+          <p className="text-muted-foreground text-xs sm:text-sm">
             Selecione mais um edital para iniciar a comparação
           </p>
         </div>

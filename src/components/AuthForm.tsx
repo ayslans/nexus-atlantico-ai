@@ -42,23 +42,23 @@ export function AuthForm() {
   };
 
   return (
-    <div className="min-h-screen gradient-hero flex items-center justify-center p-4">
+    <div className="min-h-screen gradient-hero flex items-center justify-center p-3 sm:p-4">
       <Card className="w-full max-w-md shadow-elevated animate-fade-in">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-card">
-            <FileSearch className="w-8 h-8 text-primary-foreground" />
+        <CardHeader className="text-center space-y-3 sm:space-y-4 px-4 sm:px-6 pt-6 sm:pt-6">
+          <div className="mx-auto w-12 h-12 sm:w-16 sm:h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-card">
+            <FileSearch className="w-6 h-6 sm:w-8 sm:h-8 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl font-semibold">
+          <CardTitle className="text-xl sm:text-2xl font-semibold">
             {isLogin ? 'Entrar' : 'Criar Conta'}
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-xs sm:text-sm">
             Sistema de Extração de Critérios de Editais
           </CardDescription>
         </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+        <CardContent className="px-4 sm:px-6 pb-6 sm:pb-6">
+          <form onSubmit={handleSubmit} className="space-y-3 sm:space-y-4">
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="email" className="text-sm">Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -66,10 +66,11 @@ export function AuthForm() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
+                className="text-sm sm:text-base"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
+            <div className="space-y-1.5 sm:space-y-2">
+              <Label htmlFor="password" className="text-sm">Senha</Label>
               <Input
                 id="password"
                 type="password"
@@ -78,18 +79,19 @@ export function AuthForm() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
+                className="text-sm sm:text-base"
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full text-sm sm:text-base" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4 animate-spin" />}
               {isLogin ? 'Entrar' : 'Criar Conta'}
             </Button>
           </form>
-          <div className="mt-4 text-center">
+          <div className="mt-3 sm:mt-4 text-center">
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-xs sm:text-sm text-muted-foreground hover:text-primary transition-colors"
             >
               {isLogin ? 'Não tem conta? Criar agora' : 'Já tem conta? Entrar'}
             </button>
