@@ -56,6 +56,11 @@ export function Dashboard() {
   const [analyzeEdital, setAnalyzeEdital] = useState<Edital | null>(null);
   const [editalToDelete, setEditalToDelete] = useState<Edital | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const totalEditais = editais.length;
+  const totalCriterios = Object.values(criterios).reduce(
+    (sum, lista) => sum + lista.length,
+    0
+  );
 
   const fetchEditais = async () => {
     if (!user) return;
@@ -339,6 +344,9 @@ export function Dashboard() {
           <div className="min-w-0">
             <h2 className="text-xl sm:text-2xl font-semibold">Seus Editais</h2>
             <p className="text-sm sm:text-base text-muted-foreground">Faça upload de editais PDF para extrair critérios de seleção</p>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+              {`Total de critérios extraídos: ${totalCriterios} • Editais enviados: ${totalEditais}`}
+            </p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" className="gap-2 text-xs sm:text-sm" onClick={() => setShowCompare(true)} disabled={editais.filter(e => e.status === 'concluido').length < 2}>
