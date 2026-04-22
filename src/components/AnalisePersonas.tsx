@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { ArrowLeft, ShieldCheck, FlaskConical, DollarSign, Brain, Loader2, RefreshCw, Save, History, FileText, FileCheck, Download, Sparkles, CheckCircle2, Circle, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, FlaskConical, DollarSign, Brain, Loader2, RefreshCw, Save, History, FileText, FileCheck, Download, Sparkles, CheckCircle2, Circle, AlertTriangle, PenTool, Clipboard, Layout, FileEdit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,6 +12,13 @@ import { Progress } from '@/components/ui/progress';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import ReactMarkdown from 'react-markdown';
 import { supabase } from '@/integrations/supabase/client';
+import { PDFGenerator } from '@/lib/pdfGenerator';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 interface Criterio {
   id: string;
@@ -129,6 +136,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
   const [generatingProposal, setGeneratingProposal] = useState(false);
   const [checklist, setChecklist] = useState<ChecklistItem[]>([]);
   const [showProposalBuilder, setShowProposalBuilder] = useState(false);
+  const [simulatedProposal, setSimulatedProposal] = useState<string>('');
+  const [isSimulating, setIsSimulating] = useState(false);
 
   // Carregar modelo do localStorage ao iniciar
   useEffect(() => {
@@ -138,6 +147,10 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
         const parsed = JSON.parse(savedModel);
         setProposalModel(parsed);
         setChecklist(parsed.checklist || []);
+
+        // Carregar simulação salva se houver
+        const savedSimulation = localStorage.getItem(`proposal_simulation_${edital.id}`);
+        if (savedSimulation) setSimulatedProposal(savedSimulation);
       } catch (e) {
         console.error('Erro ao carregar modelo salvo:', e);
       }
@@ -329,6 +342,49 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     }
   }, [criterios, edital, buildCriteriosText, toast]);
 
+  // Função para simular a proposta completa com IA
+  const runProposalSimulation = useCallback(async () => {
+    if (!proposalModel) {
+      toast({ title: 'Gere a Matriz de Elaboração primeiro', variant: 'destructive' });
+      return;
+    }
+
+    setIsSimulating(true);
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const aiUrl = import.meta.env.VITE_AI_SUPABASE_URL || import.meta.env.VITE_SUPABASE_URL;
+      const aiKey = import.meta.env.VITE_AI_SUPABASE_PUBLISHABLE_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+      const response = await fetch(
+        `${aiUrl}/functions/v1/simulate-proposal`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session?.session?.access_token}`,
+            'apikey': aiKey,
+          },
+          body: JSON.stringify({
+            proposalModel,
+            criteriosText: buildCriteriosText(),
+            analyses,
+            editalNome: edital.nome,
+          }),
+        }
+      );
+
+      if (!response.ok) throw new Error('Erro ao simular proposta');
+      const data = await response.json();
+      setSimulatedProposal(data.proposal);
+      localStorage.setItem(`proposal_simulation_${edital.id}`, data.proposal);
+      toast({ title: 'Simulação de proposta concluída!' });
+    } catch (error: any) {
+      toast({ title: 'Erro na simulação', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSimulating(false);
+    }
+  }, [proposalModel, analyses, buildCriteriosText, edital, toast]);
+
   // Toggle checklist item
   const toggleChecklistItem = useCallback((itemId: string) => {
     setChecklist(prev => prev.map(item =>
@@ -382,10 +438,144 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `modelo-proposta-${edital.nome.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.md`;
+    a.download = `matriz-elaboracao-${edital.nome.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.md`;
     a.click();
     URL.revokeObjectURL(url);
   }, [proposalModel, edital.nome]);
+
+  // Exportar Relatório Completo (Matriz + Simulação)
+  const exportFullReport = useCallback(() => {
+    if (!proposalModel) return;
+
+    let markdown = `# Relatório Estratégico de Proposta: ${edital.nome}\n\n`;
+    markdown += `> Gerado em: ${new Date().toLocaleDateString('pt-BR')}\n\n`;
+
+    markdown += `---\n\n# 1. Matriz de Elaboração & Diretrizes\n\n`;
+    markdown += `## Resumo Executivo\n${proposalModel.resumo_executivo}\n\n`;
+
+    markdown += `## Estrutura Recomendada\n`;
+    proposalModel.estrutura.forEach((section, idx) => {
+      markdown += `### ${idx + 1}. ${section.titulo} ${section.obrigatorio ? '(Obrigatório)' : ''}\n`;
+      markdown += `${section.descricao}\n\n`;
+      markdown += `*Sugestão de Conteúdo:* ${section.conteudo_sugerido}\n\n`;
+    });
+
+    markdown += `## Checklist de Conformidade\n`;
+    checklist.forEach(item => {
+      markdown += `- [${item.verificado ? 'x' : ' '}] ${item.item} (${item.categoria})\n`;
+    });
+
+    if (simulatedProposal) {
+      markdown += `\n---\n\n# 2. Simulação de Proposta (Draft IA)\n\n`;
+      markdown += simulatedProposal;
+    }
+
+    const blob = new Blob([markdown], { type: 'text/markdown' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `relatorio-completo-${edital.nome.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [proposalModel, checklist, simulatedProposal, edital.nome]);
+
+  // Exportar Relatório Completo em PDF (Matriz + Simulação)
+  const exportFullReportPDF = useCallback(() => {
+    if (!proposalModel) return;
+
+    const pdf = new PDFGenerator({ orientation: 'portrait' });
+    const now = new Date();
+
+    // Cabeçalho
+    let currentY = pdf.addHeader({
+      title: `Relatório Estratégico: ${edital.nome}`,
+      subtitle: 'Modelo de Proposta & Análise de Conformidade',
+      date: now,
+      companyName: 'Tender Hunter AI',
+    }) as any;
+
+    // Seção 1: Resumo Executivo
+    currentY = pdf.addSection('1. Resumo Executivo', currentY);
+    currentY = pdf.addParagraph(proposalModel.resumo_executivo, currentY, 10);
+
+    // Seção 2: Estrutura da Proposta
+    currentY = pdf.addSection('2. Estrutura Recomendada', currentY);
+    
+    proposalModel.estrutura.forEach((section, idx) => {
+      currentY = pdf.addParagraph(
+        `${idx + 1}. ${section.titulo}${section.obrigatorio ? ' [OBRIGATÓRIO]' : ''}`,
+        currentY,
+        11,
+        true
+      );
+      currentY = pdf.addParagraph(section.descricao, currentY, 9);
+      
+      if (section.pontuacao_maxima) {
+        currentY = pdf.addHighlightBox(
+          '📋 Conteúdo Sugerido & Pontuação',
+          `${section.conteudo_sugerido}\n\n⭐ Pontuação máxima: ${section.pontuacao_maxima} pontos`,
+          currentY
+        );
+      } else {
+        currentY = pdf.addParagraph(`📌 Conteúdo sugerido: ${section.conteudo_sugerido}`, currentY, 9);
+      }
+    });
+
+    // Seção 3: Checklist de Conformidade
+    currentY = pdf.addSection('3. Checklist de Conformidade', currentY);
+    
+    const checklistRows = checklist.map(item => [
+      item.verificado ? '✓' : '○',
+      item.item,
+      item.categoria,
+    ]);
+    
+    currentY = pdf.addTable(
+      ['Status', 'Requisito', 'Categoria'],
+      checklistRows,
+      currentY,
+      { columnWidths: [20, 120, 50] }
+    );
+
+    const checklistProgress = Math.round((checklist.filter(i => i.verificado).length / checklist.length) * 100);
+    currentY = pdf.addHighlightBox(
+      '📊 Progresso de Conformidade',
+      `${checklist.filter(i => i.verificado).length} de ${checklist.length} itens verificados (${checklistProgress}%)`,
+      currentY
+    );
+
+    // Seção 4: Simulação de Proposta (se disponível)
+    if (simulatedProposal) {
+      currentY = pdf.addPageBreak();
+      currentY = pdf.addSection('4. Simulação de Proposta (Draft IA)', currentY);
+      
+      // Simplificar o conteúdo markdown para texto plano
+      const plainText = simulatedProposal
+        .replace(/#{1,6}\s/g, '')
+        .replace(/\*\*/g, '')
+        .replace(/\*/g, '')
+        .replace(/`/g, '');
+      
+      currentY = pdf.addParagraph(plainText, currentY, 9);
+    }
+
+    // Rodapé
+    currentY = pdf.addSection('Informações do Documento', currentY);
+    currentY = pdf.addParagraph(
+      `Documento gerado automaticamente pelo Tender Hunter AI em ${now.toLocaleString('pt-BR')}. Este relatório contém análise estratégica para elaboração de proposta e é confidencial. Todos os direitos reservados.`,
+      currentY,
+      8
+    );
+
+    // Salvar
+    const filename = `relatorio-${edital.nome.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`;
+    pdf.save(filename);
+
+    toast({
+      title: '✅ Relatório exportado com sucesso!',
+      description: `Arquivo: ${filename}`,
+    });
+  }, [proposalModel, edital.nome, checklist, simulatedProposal, toast]);
 
   // Renderizar conteúdo específico da aba Características
   const renderCaracteristicasContent = () => {
@@ -621,6 +811,89 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
               </ul>
             </CardContent>
           </Card>
+
+          {/* Simulação de Proposta */}
+          <Card className="border-t-4 border-t-primary shadow-lg overflow-hidden">
+            <CardHeader className="bg-primary/5 border-b">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <PenTool className="w-5 h-5 text-primary" />
+                    Simulação de Proposta
+                  </CardTitle>
+                  <CardDescription>Draft completo gerado com base nas diretrizes técnicas</CardDescription>
+                </div>
+                {simulatedProposal && (
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(simulatedProposal);
+                        toast({ title: 'Copiado para a área de transferência!' });
+                      }}
+                      className="gap-2"
+                    >
+                      <Clipboard className="w-4 h-4" />
+                      Copiar
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="pt-6">
+              {isSimulating ? (
+                <div className="py-12 flex flex-col items-center justify-center gap-4 text-center">
+                  <Loader2 className="w-10 h-10 animate-spin text-primary" />
+                  <div className="space-y-1">
+                    <p className="font-medium">Construindo simulação profissional...</p>
+                    <p className="text-sm text-muted-foreground">Isso pode levar alguns segundos devido à complexidade da análise.</p>
+                  </div>
+                </div>
+              ) : simulatedProposal ? (
+                <div className="prose prose-sm dark:prose-invert max-w-none bg-muted/20 p-6 rounded-xl border border-dashed">
+                  <ReactMarkdown>{simulatedProposal}</ReactMarkdown>
+                </div>
+              ) : (
+                <div className="py-12 flex flex-col items-center justify-center gap-4 text-muted-foreground text-center">
+                  <Layout className="w-12 h-12 opacity-20" />
+                  <div className="space-y-2">
+                    <p>Nenhuma simulação gerada ainda.</p>
+                    <Button onClick={runProposalSimulation} className="gap-2">
+                      <Sparkles className="w-4 h-4" />
+                      Simular Proposta Agora
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Botão de Exportação Geral */}
+          <div className="flex justify-center pt-4 gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="lg"
+                  className="px-8 gap-2 shadow-lg"
+                  disabled={!proposalModel}
+                >
+                  <Download className="w-5 h-5" />
+                  Exportar Relatório Completo
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="center">
+                <DropdownMenuItem onClick={exportFullReport} className="gap-2">
+                  <FileText className="w-4 h-4" />
+                  Exportar como Markdown
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={exportFullReportPDF} className="gap-2">
+                  <FileCheck className="w-4 h-4" />
+                  Exportar como PDF (Formatado)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div >
       );
     }

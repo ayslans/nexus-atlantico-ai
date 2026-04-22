@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
+import { PDFGenerator } from '@/lib/pdfGenerator';
 
 interface Criterio {
   id: string;
@@ -127,39 +128,60 @@ export function SearchCriterios({ editais, criterios, onBack }: SearchCriteriosP
 
   const exportPDF = useCallback(async () => {
     if (filtered.length === 0) return;
-    const { default: jsPDF } = await import('jspdf');
-    await import('jspdf-autotable');
-    const doc = new jsPDF({ orientation: 'landscape' });
 
-    doc.setFontSize(16);
-    doc.text('Critérios Extraídos', 14, 15);
-    doc.setFontSize(10);
-    doc.text(`Exportado em ${new Date().toLocaleDateString('pt-BR')} — ${filtered.length} critérios`, 14, 22);
+    const pdf = new PDFGenerator({ orientation: 'landscape' });
+    const now = new Date();
 
-    const rows = filtered.map((c) => [
-      editalMap[c.edital_id]?.nome || '',
-      c.secao || '',
-      c.titulo || `Critério ${c.ordem}`,
-      c.conteudo.substring(0, 300) + (c.conteudo.length > 300 ? '...' : ''),
-    ]);
-
-    (doc as any).autoTable({
-      head: [['Edital', 'Seção', 'Título', 'Conteúdo']],
-      body: rows,
-      startY: 28,
-      styles: { fontSize: 8, cellPadding: 3 },
-      headStyles: { fillColor: [59, 130, 246] },
-      columnStyles: {
-        0: { cellWidth: 50 },
-        1: { cellWidth: 40 },
-        2: { cellWidth: 50 },
-        3: { cellWidth: 'auto' },
-      },
+    // Cabeçalho
+    pdf.addHeader({
+      title: 'Critérios Extraídos',
+      subtitle: 'Relatório de Análise de Editais',
+      date: now,
+      companyName: 'Tender Hunter AI',
     });
 
-    doc.save(`criterios_${new Date().toISOString().slice(0, 10)}.pdf`);
-    toast({ title: `${filtered.length} critérios exportados para PDF` });
-  }, [filtered, editalMap, toast]);
+    let currentY = 50;
+
+    // Estatísticas
+    const stats = `Total de Critérios: ${filtered.length} | Editais: ${new Set(filtered.map(c => c.edital_id)).size} | Seções: ${allSecoes.length}`;
+    currentY = pdf.addHighlightBox('📊 Resumo dos Dados', stats, currentY);
+
+    // Seção de Critérios
+    currentY = pdf.addSection('Critérios Detalhados', currentY);
+
+    // Preparar dados da tabela
+    const rows = filtered.map((c) => [
+      editalMap[c.edital_id]?.nome || '—',
+      c.secao || '—',
+      c.titulo || `Critério ${c.ordem}`,
+      c.conteudo.substring(0, 250) + (c.conteudo.length > 250 ? '...' : ''),
+    ]);
+
+    // Adicionar tabela
+    currentY = pdf.addTable(
+      ['Edital', 'Seção', 'Título', 'Conteúdo'],
+      rows,
+      currentY,
+      {
+        columnWidths: [60, 40, 60, 100],
+      }
+    );
+
+    // Rodapé com informações
+    currentY = pdf.addSection('Informações Adicionais', currentY);
+    currentY = pdf.addParagraph(
+      `Este documento foi gerado automaticamente pelo Tender Hunter AI em ${now.toLocaleString('pt-BR')}. Para mais informações sobre os critérios, consulte a plataforma.`,
+      currentY,
+      9,
+      false
+    );
+
+    // Salvar PDF
+    const filename = `criterios_${now.toISOString().slice(0, 10)}.pdf`;
+    pdf.save(filename);
+
+    toast({ title: `✅ ${filtered.length} critérios exportados para PDF`, description: `Arquivo: ${filename}` });
+  }, [filtered, editalMap, allSecoes, toast]);
 
   return (
     <div className="space-y-6 animate-fade-in">
