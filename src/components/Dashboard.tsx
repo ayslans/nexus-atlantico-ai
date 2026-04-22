@@ -320,7 +320,7 @@ export function Dashboard() {
         <div className="container flex h-16 items-center justify-between px-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 flex items-center justify-center">
-              <img src="/logo.svg" alt="Nexus AI Logo" className="w-9 h-9" />
+              <img src={logo} alt="Nexus AI Logo" className="w-9 h-9" />
             </div>
             <div>
               <h1 className="text-lg font-semibold">Nexus AI</h1>

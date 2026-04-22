@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { FileSearch, Loader2 } from 'lucide-react';
+import logo from '/logo.svg';
 
 export function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
@@ -46,7 +47,7 @@ export function AuthForm() {
       <Card className="w-full max-w-md shadow-elevated animate-fade-in">
         <CardHeader className="text-center space-y-4">
           <div className="mx-auto w-20 h-20 flex items-center justify-center">
-            <img src="/logo.svg" alt="Nexus AI Logo" className="w-full h-full" />
+            <img src={logo} alt="Nexus AI Logo" className="w-full h-full" />
           </div>
           <CardTitle className="text-2xl font-semibold">
             Bem-vindo ao Nexus AI
