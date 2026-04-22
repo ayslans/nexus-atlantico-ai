@@ -45,8 +45,8 @@ export function AuthForm() {
     <div className="min-h-screen gradient-hero flex items-center justify-center p-4">
       <Card className="w-full max-w-md shadow-elevated animate-fade-in">
         <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-16 h-16 rounded-2xl gradient-primary flex items-center justify-center shadow-card">
-            <FileSearch className="w-8 h-8 text-primary-foreground" />
+          <div className="mx-auto w-20 h-20 flex items-center justify-center">
+            <img src="/logo.svg" alt="Nexus AI Logo" className="w-full h-full" />
           </div>
           <CardTitle className="text-2xl font-semibold">
             Bem-vindo ao Nexus AI
