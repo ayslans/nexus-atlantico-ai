@@ -18,13 +18,16 @@ declare global {
 export class PDFGenerator {
   private doc: jsPDF;
   private pageNumber: number = 1;
+  private totalPages: number = 1;
   private margin: number;
   private colors: {
     primary: number[];
     secondary: number[];
     text: number[];
     lightGray: number[];
+    white: number[];
   };
+  private footerInfo: string;
 
   constructor(options: { orientation?: 'portrait' | 'landscape'; margin?: number } = {}) {
     this.doc = new jsPDF({
@@ -33,242 +36,238 @@ export class PDFGenerator {
       format: 'a4',
     });
 
-    this.margin = options.margin || 12;
+    this.margin = options.margin || 15;
+    this.footerInfo = `Relatório Gerado em ${new Date().toLocaleDateString('pt-BR')}`;
 
     this.colors = {
-      primary: [59, 130, 246],
-      secondary: [107, 114, 128],
-      text: [31, 41, 55],
-      lightGray: [243, 244, 246],
+      primary: [18, 56, 104], // Azul Corporativo Escuro
+      secondary: [72, 85, 99], // Cinza Corporativo
+      text: [22, 28, 36], // Preto Suave
+      lightGray: [245, 246, 250], // Fundo de Linha Alternada
+      white: [255, 255, 255],
     };
+    
+    // Define a fonte padrão para o documento
+    this.doc.setFont('helvetica', 'normal');
   }
 
   /**
-   * Adiciona cabeçalho profissional
+   * Adiciona o rodapé a todas as páginas.
+   * @private
    */
-  addHeader(options: { title: string; subtitle?: string; date?: Date }): number {
+  private _addFooter() {
+    const pageCount = this.doc.internal.pages.length -1;
+    for (let i = 1; i <= pageCount; i++) {
+      this.doc.setPage(i);
+      const pageWidth = this.doc.internal.pageSize.getWidth();
+      const pageHeight = this.doc.internal.pageSize.getHeight();
+      
+      // Linha decorativa
+      this.doc.setDrawColor(...this.colors.secondary);
+      this.doc.setLineWidth(0.2);
+      this.doc.line(this.margin, pageHeight - 10, pageWidth - this.margin, pageHeight - 10);
+
+      // Texto do rodapé
+      this.doc.setFontSize(8);
+      this.doc.setTextColor(...this.colors.secondary);
+      
+      const footerText = `${this.footerInfo} | Página ${i} de ${pageCount}`;
+      const textWidth = this.doc.getStringUnitWidth(footerText) * this.doc.getFontSize() / this.doc.internal.scaleFactor;
+      
+      this.doc.text(footerText, pageWidth / 2 - textWidth / 2, pageHeight - 7);
+    }
+  }
+
+  /**
+   * Adiciona cabeçalho profissional com logo (placeholder).
+   */
+  addHeader(options: { title: string; subtitle?: string; logoUrl?: string }): number {
     const pageWidth = this.doc.internal.pageSize.getWidth();
-    const startX = this.margin;
     const startY = this.margin;
 
-    // Linha decorativa superior
-    this.doc.setDrawColor(...(this.colors.primary as [number, number, number]));
-    this.doc.setLineWidth(1.5);
-    this.doc.line(startX, startY, pageWidth - this.margin, startY);
-
+    // Logo (placeholder)
+    if (options.logoUrl) {
+      // Exemplo: this.doc.addImage(options.logoUrl, 'PNG', pageWidth - this.margin - 30, startY, 25, 25);
+    } else {
+        this.doc.setFillColor(...this.colors.primary);
+        this.doc.rect(pageWidth - this.margin - 15, startY - 5, 15, 15, 'F');
+    }
+    
     // Título
-    this.doc.setFontSize(24);
-    this.doc.setFont(undefined, 'bold');
-    this.doc.setTextColor(...(this.colors.primary as [number, number, number]));
-    this.doc.text(options.title, startX, startY + 10);
+    this.doc.setFontSize(22);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setTextColor(...this.colors.primary);
+    this.doc.text(options.title, this.margin, startY + 5);
 
-    let currentY = startY + 18;
+    let currentY = startY + 12;
 
     // Subtítulo
     if (options.subtitle) {
-      this.doc.setFontSize(12);
-      this.doc.setFont(undefined, 'normal');
-      this.doc.setTextColor(...(this.colors.secondary as [number, number, number]));
-      this.doc.text(options.subtitle, startX, currentY);
+      this.doc.setFontSize(11);
+      this.doc.setFont('helvetica', 'normal');
+      this.doc.setTextColor(...this.colors.secondary);
+      this.doc.text(options.subtitle, this.margin, currentY);
       currentY += 8;
     }
 
-    // Data
-    if (options.date) {
-      this.doc.setFontSize(9);
-      this.doc.setTextColor(...(this.colors.text as [number, number, number]));
-      const dateStr = options.date.toLocaleDateString('pt-BR');
-      const timeStr = options.date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-      this.doc.text(`Gerado em: ${dateStr} às ${timeStr}`, startX, currentY);
-      currentY += 5;
-    }
-
     // Linha decorativa inferior
+    this.doc.setDrawColor(...this.colors.lightGray);
     this.doc.setLineWidth(0.5);
-    this.doc.setDrawColor(240, 240, 240);
-    this.doc.line(startX, currentY + 2, pageWidth - this.margin, currentY + 2);
+    this.doc.line(this.margin, currentY, pageWidth - this.margin, currentY);
 
-    return currentY + 8;
+    return currentY + 6;
   }
 
   /**
-   * Adiciona uma seção com título colorido
+   * Adiciona uma seção com título estilizado.
    */
   addSection(title: string, currentY: number): number {
-    const pageHeight = this.doc.internal.pageSize.getHeight();
+    this._ensurePage(currentY);
     const pageWidth = this.doc.internal.pageSize.getWidth();
-    const startX = this.margin;
+    
+    // Fundo da seção
+    this.doc.setFillColor(...this.colors.lightGray);
+    this.doc.rect(this.margin, currentY, pageWidth - 2 * this.margin, 10, 'F');
+    
+    // Texto do título
+    this.doc.setFontSize(14);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setTextColor(...this.colors.primary);
+    this.doc.text(title, this.margin + 3, currentY + 7);
 
-    // Verificar se precisa nova página
-    if (currentY > pageHeight - 30) {
-      this.doc.addPage();
-      this.pageNumber++;
-      return this.margin;
-    }
-
-    // Fundo colorido
-    this.doc.setFillColor(...(this.colors.primary as [number, number, number]));
-    this.doc.rect(startX - 2, currentY - 5, pageWidth - 2 * this.margin + 4, 8, 'F');
-
-    // Texto
-    this.doc.setFontSize(12);
-    this.doc.setFont(undefined, 'bold');
-    this.doc.setTextColor(255, 255, 255);
-    this.doc.text(title, startX + 2, currentY);
-
-    return currentY + 10;
+    return currentY + 15;
   }
 
   /**
-   * Adiciona parágrafo de texto com quebra automática
+   * Adiciona parágrafo de texto com formatação e quebra automática.
    */
-  addParagraph(text: string, currentY: number, fontSize: number = 10, bold: boolean = false): number {
-    const pageHeight = this.doc.internal.pageSize.getHeight();
-    const pageWidth = this.doc.internal.pageSize.getWidth();
-    const startX = this.margin;
-    const maxWidth = pageWidth - 2 * this.margin;
-
-    // Verificar se precisa nova página
-    if (currentY > pageHeight - 20) {
-      this.doc.addPage();
-      this.pageNumber++;
-      currentY = this.margin;
-    }
+  addParagraph(text: string, currentY: number, options: { fontSize?: number; bold?: boolean; color?: number[] } = {}): number {
+    currentY = this._ensurePage(currentY);
+    const { fontSize = 10, bold = false, color = this.colors.text } = options;
+    const maxWidth = this.doc.internal.pageSize.getWidth() - 2 * this.margin;
 
     this.doc.setFontSize(fontSize);
-    this.doc.setFont(undefined, bold ? 'bold' : 'normal');
-    this.doc.setTextColor(...(this.colors.text as [number, number, number]));
+    this.doc.setFont('helvetica', bold ? 'bold' : 'normal');
+    this.doc.setTextColor(...(color as [number, number, number]));
 
     const lines = this.doc.splitTextToSize(text, maxWidth);
-    const lineHeight = fontSize / 2.8;
-
-    this.doc.text(lines as string[], startX, currentY);
+    const lineHeight = fontSize * 0.35; // Ajuste de espaçamento entre linhas
+    
+    this.doc.text(lines as string[], this.margin, currentY);
 
     return currentY + (lines.length * lineHeight) + 4;
   }
 
   /**
-   * Adiciona uma tabela formatada
+   * Adiciona uma tabela com estilo corporativo.
    */
-  addTable(headers: string[], rows: string[][], currentY: number, columnWidths?: number[]): number {
-    const pageHeight = this.doc.internal.pageSize.getHeight();
-    const pageWidth = this.doc.internal.pageSize.getWidth();
+  addTable(headers: string[], rows: string[][], currentY: number, options: { columnWidths?: number[]; title?: string } = {}): number {
+    currentY = this._ensurePage(currentY, 40);
 
-    // Verificar se precisa nova página
-    if (currentY > pageHeight - 40) {
-      this.doc.addPage();
-      this.pageNumber++;
-      currentY = this.margin;
+    if (options.title) {
+      currentY = this.addParagraph(options.title, currentY, { fontSize: 11, bold: true });
     }
 
-    // Calcular larguras das colunas
-    const colWidths = columnWidths || new Array(headers.length).fill((pageWidth - 2 * this.margin) / headers.length);
+    const headStyles = {
+      fillColor: this.colors.primary,
+      textColor: this.colors.white,
+      font: 'helvetica',
+      fontStyle: 'bold',
+      fontSize: 10,
+      cellPadding: 3,
+      valign: 'middle',
+    };
 
-    // Construir styles de coluna
-    const columnStyles: Record<number, Record<string, unknown>> = {};
-    colWidths.forEach((width, idx) => {
-      columnStyles[idx] = { cellWidth: width };
-    });
+    const bodyStyles = {
+      textColor: this.colors.text,
+      font: 'helvetica',
+      fontSize: 9,
+      cellPadding: 2,
+      valign: 'middle',
+    };
 
     try {
-      const tableOptions: JsPdfAutoTableOptions = {
+      (this.doc as any).autoTable({
         head: [headers],
         body: rows,
         startY: currentY,
         margin: { left: this.margin, right: this.margin },
-        columnStyles,
-        headStyles: {
-          fillColor: this.colors.primary,
-          textColor: [255, 255, 255],
-          font: 'helvetica',
-          fontStyle: 'bold',
-          fontSize: 10,
-          cellPadding: 4,
-          halign: 'left',
-        } as Record<string, unknown>,
-        bodyStyles: {
-          textColor: this.colors.text,
-          font: 'helvetica',
-          fontSize: 9,
-          cellPadding: 3,
-        } as Record<string, unknown>,
+        styles: { overflow: 'linebreak' },
+        columnStyles: { 0: { cellWidth: 'auto' } },
+        headStyles,
+        bodyStyles,
         alternateRowStyles: {
           fillColor: this.colors.lightGray,
-        } as Record<string, unknown>,
-      };
+        },
+        didDrawPage: (data: any) => {
+          // Lógica para cabeçalho/rodapé em cada página da tabela, se necessário
+        }
+      });
 
-      (this.doc as any).autoTable(tableOptions);
+      const finalY = (this.doc as any).lastAutoTable.finalY;
+      return finalY + 8;
 
-      const lastAutoTable = (this.doc as any).lastAutoTable;
-      if (lastAutoTable) {
-        this.pageNumber = this.doc.internal.pages.length - 1;
-        return lastAutoTable.finalY + 5;
-      }
     } catch (error) {
       console.error('Erro ao adicionar tabela:', error);
+      return currentY + 10;
     }
-
-    return currentY + 20;
   }
 
   /**
-   * Adiciona um box de destaque
+   * Adiciona uma caixa de destaque para informações importantes.
    */
   addHighlightBox(title: string, content: string, currentY: number): number {
-    const pageHeight = this.doc.internal.pageSize.getHeight();
-    const pageWidth = this.doc.internal.pageSize.getWidth();
-    const startX = this.margin;
-    const boxWidth = pageWidth - 2 * this.margin;
-
-    // Verificar se precisa nova página
-    if (currentY > pageHeight - 30) {
-      this.doc.addPage();
-      this.pageNumber++;
-      currentY = this.margin;
-    }
-
-    // Fundo do box
-    const bgColor = [
-      Math.min(255, this.colors.primary[0] + 30),
-      Math.min(255, this.colors.primary[1] + 30),
-      Math.min(255, this.colors.primary[2] + 30),
-    ];
-    this.doc.setFillColor(...(bgColor as [number, number, number]));
-
-    // Calcular altura
+    currentY = this._ensurePage(currentY, 30);
+    const boxWidth = this.doc.internal.pageSize.getWidth() - 2 * this.margin;
+    
     const contentLines = this.doc.splitTextToSize(content, boxWidth - 8);
-    const boxHeight = 5 + 5 + contentLines.length * 4 + 4;
+    const boxHeight = 10 + (contentLines.length * 4) + 5;
 
-    this.doc.rect(startX, currentY, boxWidth, boxHeight, 'F');
-
+    // Borda e fundo
+    this.doc.setDrawColor(...this.colors.primary);
+    this.doc.setFillColor(...this.colors.lightGray);
+    this.doc.rect(this.margin, currentY, boxWidth, boxHeight, 'FD');
+    
     // Título
     this.doc.setFontSize(11);
-    this.doc.setFont(undefined, 'bold');
-    this.doc.setTextColor(...(this.colors.primary as [number, number, number]));
-    this.doc.text(title, startX + 4, currentY + 5);
+    this.doc.setFont('helvetica', 'bold');
+    this.doc.setTextColor(...this.colors.primary);
+    this.doc.text(title, this.margin + 4, currentY + 7);
 
     // Conteúdo
     this.doc.setFontSize(9);
-    this.doc.setFont(undefined, 'normal');
-    this.doc.setTextColor(...(this.colors.text as [number, number, number]));
-    this.doc.text(contentLines as string[], startX + 4, currentY + 11);
+    this.doc.setFont('helvetica', 'normal');
+    this.doc.setTextColor(...this.colors.text);
+    this.doc.text(contentLines as string[], this.margin + 4, currentY + 14);
 
-    return currentY + boxHeight + 6;
+    return currentY + boxHeight + 8;
   }
 
   /**
-   * Adiciona quebra de página
+   * Garante que há espaço na página, senão adiciona uma nova.
+   * @private
+   */
+  private _ensurePage(currentY: number, spaceNeeded: number = 20): number {
+    const pageHeight = this.doc.internal.pageSize.getHeight();
+    if (currentY > pageHeight - this.margin - spaceNeeded) {
+      return this.addPageBreak();
+    }
+    return currentY;
+  }
+
+  /**
+   * Adiciona quebra de página manual.
    */
   addPageBreak(): number {
     this.doc.addPage();
-    this.pageNumber++;
     return this.margin;
   }
 
   /**
-   * Salva o PDF
+   * Salva o PDF, adicionando o rodapé a todas as páginas antes.
    */
   save(filename: string): void {
+    this._addFooter(); // Adiciona rodapés em todas as páginas
     try {
       this.doc.save(filename);
     } catch (error) {
@@ -278,7 +277,7 @@ export class PDFGenerator {
   }
 
   /**
-   * Retorna o documento para manipulação direta
+   * Retorna o documento para manipulação direta, se necessário.
    */
   getDocument(): jsPDF {
     return this.doc;

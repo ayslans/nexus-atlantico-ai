@@ -133,60 +133,52 @@ export function SearchCriterios({ editais, criterios, onBack }: SearchCriteriosP
       const pdf = new PDFGenerator({ orientation: 'landscape' });
       const now = new Date();
 
-      // Cabeçalho
+      // Cabeçalho do Relatório
       let currentY = pdf.addHeader({
-        title: 'Critérios Extraídos',
-        subtitle: 'Relatório de Análise de Editais',
-        date: now,
+        title: 'Relatório de Análise de Critérios',
+        subtitle: `Exportado de Tender Hunter AI em ${now.toLocaleDateString('pt-br')}`,
       });
-
+      
       // Estatísticas
-      const editaisUnicos = new Set(filtered.map(c => c.edital_id)).size;
-      const stats = `Total de Critérios: ${filtered.length} | Editais: ${editaisUnicos} | Seções: ${allSecoes.length}`;
-      currentY = pdf.addHighlightBox('📊 Resumo dos Dados', stats, currentY);
+      const editaisUnicos = new Set(filtered.map(c => editalMap[c.edital_id]?.nome || 'Desconhecido')).size;
+      const stats = `Total de Critérios Filtrados: ${filtered.length} | Abrangendo ${editaisUnicos} edita(is).`;
+      currentY = pdf.addParagraph(stats, currentY, { fontSize: 9, color: pdf.colors.secondary });
+      currentY += 5;
 
       // Seção de Critérios
       currentY = pdf.addSection('Critérios Detalhados', currentY);
 
-      // Preparar dados da tabela (limitar tamanho do conteúdo)
+      // Preparar dados da tabela
       const rows = filtered.map((c) => [
         editalMap[c.edital_id]?.nome || '—',
         c.secao || '—',
         c.titulo || `Critério ${c.ordem}`,
-        c.conteudo.substring(0, 200) + (c.conteudo.length > 200 ? '...' : ''),
+        c.conteudo, // Passa o conteúdo completo
       ]);
 
-      // Adicionar tabela com larguras específicas
+      // Adicionar tabela
       currentY = pdf.addTable(
         ['Edital', 'Seção', 'Título', 'Conteúdo'],
         rows,
         currentY,
-        [50, 30, 50, 70]
       );
 
-      // Rodapé
-      currentY = pdf.addSection('Informações do Documento', currentY);
-      currentY = pdf.addParagraph(
-        `Gerado em ${now.toLocaleString('pt-BR')} pelo Tender Hunter AI. Para atualizar, consulte a plataforma.`,
-        currentY,
-        8
-      );
-
-      // Salvar
-      pdf.save(`criterios_${now.toISOString().slice(0, 10)}.pdf`);
+      // Salvar PDF (o rodapé com paginação é adicionado automaticamente)
+      pdf.save(`Relatorio_Criterios_${now.toISOString().slice(0, 10)}.pdf`);
+      
       toast({
         title: '✅ PDF exportado com sucesso!',
-        description: `${filtered.length} critérios exportados`,
+        description: `${filtered.length} critérios incluídos no relatório.`,
       });
     } catch (error) {
       console.error('Erro ao exportar PDF:', error);
       toast({
         title: '❌ Erro ao exportar PDF',
-        description: 'Tente novamente ou use o formato CSV',
+        description: 'Não foi possível gerar o relatório. Tente o formato CSV.',
         variant: 'destructive',
       });
     }
-  }, [filtered, editalMap, allSecoes, toast]);
+  }, [filtered, editalMap, toast]);
 
   return (
     <div className="space-y-6 animate-fade-in">
