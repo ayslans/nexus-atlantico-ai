@@ -1,34 +1,13 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const corsHeaders = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { callGeminiWithRetry } from "../_shared/gemini.ts";
 
 async function callGemini(prompt: string, context: string, geminiKey: string) {
-    try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    role: 'user',
-                    parts: [{ text: `${prompt}\n\nCONTEXTO DO EDITAL E MATRIZ:\n${context}` }]
-                }],
-                generationConfig: {
-                    temperature: 0.4,
-                    topP: 0.8,
-                }
-            }),
-        });
-
-        if (!response.ok) throw new Error(`Gemini API error: ${response.status}`);
-        const data = await response.json();
-        return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    } catch (error) {
-        console.error('Gemini call failed:', error);
-        return null;
-    }
+    const result = await callGeminiWithRetry(prompt, context, geminiKey, {
+        temperature: 0.4,
+        topP: 0.8,
+    });
+    return result.content || '';
 }
 
 serve(async (req) => {

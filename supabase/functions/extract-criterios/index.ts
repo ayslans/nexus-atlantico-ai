@@ -2,11 +2,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 // deno-types="https://esm.sh/@supabase/supabase-js@2.49.4"
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { callGeminiWithRetry } from "../_shared/gemini.ts";
 
 // Chunking: processar editais longos em partes para maior assertividade e cobertura
 const CHUNK_SIZE = 85_000;
@@ -41,35 +38,7 @@ function splitIntoChunks(text: string): string[] {
   return chunks;
 }
 
-// Call Google Gemini API
-async function callGemini(systemPrompt: string, userContent: string, geminiKey: string) {
-  try {
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ role: 'user', parts: [{ text: systemPrompt + '\n\n' + userContent }] }],
-        generationConfig: {
-          temperature: 0.2,
-          topP: 0.9,
-          maxOutputTokens: 8192,
-        },
-      }),
-    });
 
-    if (geminiResponse.ok) {
-      const data = await geminiResponse.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      return { success: true, content: content ?? null };
-    }
-    const error = await geminiResponse.text();
-    console.error('Gemini error:', geminiResponse.status, error);
-    return { success: false, content: null };
-  } catch (error) {
-    console.error('Gemini call failed:', error);
-    return { success: false, content: null };
-  }
-}
 
 function buildSystemPrompt(): string {
   return `Você é um especialista em análise de editais de licitação e seleção pública brasileiros (Lei 14.133/2021, Pregão, Concorrência, etc.).
@@ -251,7 +220,11 @@ serve(async (req) => {
         ? `Esta é a parte ${i + 1} de ${chunks.length} do edital. Extraia TODOS os critérios de seleção desta parte.\n\n`
         : '';
       const userContent = `${partLabel}${chunks[i]}`;
-      const aiResult = await callGemini(systemPrompt, userContent, GEMINI_API_KEY);
+      const aiResult = await callGeminiWithRetry(systemPrompt, userContent, GEMINI_API_KEY, {
+        temperature: 0.2,
+        topP: 0.9,
+        maxOutputTokens: 8192,
+      });
 
       if (!aiResult.success || !aiResult.content) {
         console.error(`AI failed on chunk ${i + 1}`);

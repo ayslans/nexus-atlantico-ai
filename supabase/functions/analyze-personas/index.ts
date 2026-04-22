@@ -1,10 +1,7 @@
-// Este arquivo é destinado à execução em ambiente Deno/Supabase Edge Functions.
+// @ts-ignore: Deno 'serve' import will be available at runtime
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
+import { corsHeaders } from "../_shared/cors.ts";
+import { callGeminiWithRetry } from "../_shared/gemini.ts";
 
 const PERSONAS = {
   auditor: {
@@ -65,44 +62,7 @@ Responda em formato markdown estruturado. Utilize um tom extremamente profission
   }
 };
 
-// Call Google Gemini API
-async function callGemini(systemPrompt: string, userContent: string, geminiKey: string) {
-  console.log('Calling Google Gemini API...');
-  try {
-    const geminiResponse = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [
-              { text: systemPrompt + '\n\n' + userContent }
-            ]
-          }
-        ],
-        generationConfig: {
-          temperature: 0.7,
-        }
-      }),
-    });
 
-    if (geminiResponse.ok) {
-      const data = await geminiResponse.json();
-      const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      return { success: true, content, error: null };
-    } else {
-      const error = await geminiResponse.text();
-      console.error('Gemini error:', geminiResponse.status, error);
-      return { success: false, content: null, error: `Gemini API: ${geminiResponse.status} - ${error}` };
-    }
-  } catch (error) {
-    console.error('Gemini call failed:', error);
-    return { success: false, content: null, error: error instanceof Error ? error.message : 'Falha na requisição de rede para a API' };
-  }
-}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -171,7 +131,9 @@ serve(async (req) => {
 
     const userContent = `Analise os seguintes critérios extraídos do edital "${editalNome}":\n\n${truncatedCriterios}`;
 
-    const aiResult = await callGemini(selectedPersona.prompt, userContent, GEMINI_API_KEY);
+    const aiResult = await callGeminiWithRetry(selectedPersona.prompt, userContent, GEMINI_API_KEY, {
+      temperature: 0.7,
+    });
 
     if (!aiResult.success) {
       return new Response(

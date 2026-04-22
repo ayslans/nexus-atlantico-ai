@@ -1,12 +1,8 @@
-// Edge function para geração avançada de modelo de proposta usando IA
+﻿// @ts-ignore: remote Deno std import for runtime
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+import { callGeminiWithRetry } from "../_shared/gemini.ts";
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
-};
-
-// Prompts especializados para análise multi-etapa
 const ANALYSIS_PROMPTS = {
   estrutura: `Você é um especialista em elaboração de propostas para editais de fomento. Analise os critérios do edital e extraia a ESTRUTURA COMPLETA que a proposta deve seguir.
 
@@ -17,9 +13,9 @@ Para cada seção identificada, forneça:
 - Pontuação máxima (se mencionada)
 - Conteúdo sugerido baseado nas melhores práticas
 
-IMPORTANTE: 
+IMPORTANTE:
 1. Retorne APENAS um JSON válido no formato abaixo.
-2. Utilize um tom extremamente profissional, refinado e técnico. 
+2. Utilize um tom extremamente profissional, refinado e técnico.
 3. NUNCA utilize emojis ou símbolos informais no conteúdo sugerido ou nas descrições.
 
 {
@@ -40,7 +36,7 @@ IMPORTANTE:
 
 Categorize cada item em: documento, conteudo, formato ou prazo.
 
-IMPORTANTE: 
+IMPORTANTE:
 1. Retorne APENAS um JSON válido no formato abaixo.
 2. Seja preciso, formal e profissional.
 3. Não utilize emojis no texto dos itens.
@@ -59,7 +55,7 @@ IMPORTANTE:
 
   criterios_avaliacao: `Você é um avaliador experiente de propostas de fomento. Identifique todos os CRITÉRIOS DE AVALIAÇÃO e seus pesos. Para cada critério, forneça uma diretriz estratégica formal.
 
-IMPORTANTE: 
+IMPORTANTE:
 1. Retorne APENAS um JSON válido no formato abaixo.
 2. Utilize linguagem polida e profissional.
 3. Não utilize emojis.
@@ -80,7 +76,7 @@ IMPORTANTE:
 3. Requisitos eliminatórios críticos.
 4. Diretrizes de alto nível para sucesso.
 
-IMPORTANTE: 
+IMPORTANTE:
 1. Retorne APENAS um JSON válido no formato abaixo.
 2. Mantenha um tom executivo, sóbrio e refinado.
 3. PROIBIDO o uso de emojis.
@@ -93,7 +89,6 @@ IMPORTANTE:
 }`
 };
 
-// Função para gerar UUID simples
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
     const r = Math.random() * 16 | 0;
@@ -102,160 +97,114 @@ function generateUUID(): string {
   });
 }
 
-// Função para chamar Gemini com retry
-async function callGeminiWithRetry(
+function parseAIJsonResponse(text: string): unknown {
+  let jsonContent = text.trim();
+
+  if (jsonContent.startsWith('```')) {
+    const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (match) {
+      jsonContent = match[1].trim();
+    }
+  }
+
+  const firstBrace = jsonContent.indexOf('{');
+  const lastBrace = jsonContent.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    jsonContent = jsonContent.substring(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    return JSON.parse(jsonContent);
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError, 'Content:', jsonContent.substring(0, 500));
+    throw new Error('Falha ao parsear resposta da IA como JSON.');
+  }
+}
+
+async function callGemini(
   systemPrompt: string,
   userContent: string,
   geminiKey: string,
-  maxRetries: number = 3
+  maxRetries: number = 5
 ): Promise<{ success: boolean; content: unknown }> {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      console.log(`Gemini call attempt ${attempt + 1}/${maxRetries}`);
-
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{
-              role: 'user',
-              parts: [{ text: systemPrompt + '\n\nCRITÉRIOS DO EDITAL:\n' + userContent }]
-            }],
-            generationConfig: {
-              temperature: 0.3, // Baixa temperatura para respostas mais consistentes
-              topP: 0.8,
-              topK: 40,
-            }
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Gemini error (attempt ${attempt + 1}):`, response.status, errorText);
-
-        // Se for rate limit, esperar antes de retry
-        if (response.status === 429) {
-          await new Promise(resolve => setTimeout(resolve, 2000 * (attempt + 1)));
-          continue;
-        }
-        throw new Error(`Gemini API error: ${response.status}`);
-      }
-
-      const data = await response.json();
-      const textContent = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-      if (!textContent) {
-        throw new Error('Empty response from Gemini');
-      }
-
-      // Extrair JSON da resposta (pode vir com markdown code blocks)
-      let jsonContent = textContent.trim();
-
-      // Remove possible markdown code blocks
-      if (jsonContent.startsWith('```')) {
-        const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-        if (match) {
-          jsonContent = match[1].trim();
-        }
-      }
-
-      // If there's still extra text around the JSON, try to find the first { and last }
-      const firstBrace = jsonContent.indexOf('{');
-      const lastBrace = jsonContent.lastIndexOf('}');
-      if (firstBrace !== -1 && lastBrace !== -1) {
-        jsonContent = jsonContent.substring(firstBrace, lastBrace + 1);
-      }
-
-      // Tentar parsear JSON
-      try {
-        const parsed = JSON.parse(jsonContent);
-        return { success: true, content: parsed };
-      } catch (parseError) {
-        console.error('JSON parse error:', parseError, 'Content:', jsonContent.substring(0, 500));
-        if (attempt < maxRetries - 1) continue;
-        throw new Error('Failed to parse AI response as JSON');
-      }
-
-    } catch (error) {
-      console.error(`Attempt ${attempt + 1} failed:`, error);
-      if (attempt === maxRetries - 1) {
-        return { success: false, content: null };
-      }
-      await new Promise(resolve => setTimeout(resolve, 1000 * (attempt + 1)));
-    }
+  const result = await callGeminiWithRetry(systemPrompt, userContent, geminiKey, { temperature: 0.4 }, maxRetries);
+  if (!result.success || !result.content) {
+    return { success: false, content: null };
   }
-  return { success: false, content: null };
+  try {
+    const parsed = parseAIJsonResponse(result.content);
+    return { success: true, content: parsed };
+  } catch (e) {
+    return { success: false, content: null };
+  }
 }
 
-// Função principal para gerar modelo de proposta
+interface ChecklistItem {
+  id: string;
+  item: string;
+  categoria: 'documento' | 'conteudo' | 'formato' | 'prazo';
+  obrigatorio: boolean;
+  verificado: boolean;
+}
+
 async function generateProposalModel(
   criteriosText: string,
   editalNome: string,
   geminiKey: string
-): Promise<unknown> {
-  console.log(`Generating proposal model for: ${editalNome}`);
+): Promise<Record<string, unknown>> {
+  console.log(`Gerando modelo de proposta para: ${editalNome}`);
 
-  // Executar análises em paralelo para otimizar tempo
   const [estruturaResult, checklistResult, criteriosResult, estrategiaResult] = await Promise.all([
-    callGeminiWithRetry(ANALYSIS_PROMPTS.estrutura, criteriosText, geminiKey),
-    callGeminiWithRetry(ANALYSIS_PROMPTS.checklist, criteriosText, geminiKey),
-    callGeminiWithRetry(ANALYSIS_PROMPTS.criterios_avaliacao, criteriosText, geminiKey),
-    callGeminiWithRetry(ANALYSIS_PROMPTS.analise_estrategica, criteriosText, geminiKey),
+    callGemini(ANALYSIS_PROMPTS.estrutura, criteriosText, geminiKey),
+    callGemini(ANALYSIS_PROMPTS.checklist, criteriosText, geminiKey),
+    callGemini(ANALYSIS_PROMPTS.criterios_avaliacao, criteriosText, geminiKey),
+    callGemini(ANALYSIS_PROMPTS.analise_estrategica, criteriosText, geminiKey),
   ]);
 
-  // Verificar se todas as análises foram bem sucedidas
-  if (!estruturaResult.success || !checklistResult.success ||
-    !criteriosResult.success || !estrategiaResult.success) {
-    throw new Error('Falha em uma ou mais análises de IA. Tente novamente.');
+  if (!estruturaResult.success || !checklistResult.success || !criteriosResult.success || !estrategiaResult.success) {
+    const errors = [estruturaResult, checklistResult, criteriosResult, estrategiaResult]
+      .filter((result) => !result.success)
+      .map((result) => String(result.content));
+    throw new Error(`Falha em uma ou mais análises de IA: ${errors.join(' | ')}`);
   }
 
-  // Garantir que todos os itens tenham IDs únicos
-  const estrutura = ((estruturaResult.content as Record<string, unknown>).estrutura as Array<Record<string, unknown>> || []).map((item, idx: number) => ({
-    ...item,
-    id: item.id || generateUUID(),
-    ordem: item.ordem || idx + 1,
+  const estrutura = Array.isArray((estruturaResult.content as any).estrutura)
+    ? (estruturaResult.content as any).estrutura
+    : [];
+
+  const checklist = Array.isArray((checklistResult.content as any).checklist)
+    ? (checklistResult.content as any).checklist
+    : [];
+
+  const criteriosAvaliacao = Array.isArray((criteriosResult.content as any).criterios_avaliacao)
+    ? (criteriosResult.content as any).criterios_avaliacao
+    : [];
+
+  const estrategia = estrategiaResult.content as any || {};
+
+  const normalizedEstrutura = estrutura.map((item: any, idx: number) => ({
+    id: typeof item.id === 'string' && item.id.length > 0 ? item.id : generateUUID(),
+    titulo: item.titulo || `Seção ${idx + 1}`,
+    descricao: item.descricao || '',
+    conteudo_sugerido: item.conteudo_sugerido || '',
+    pontuacao_maxima: typeof item.pontuacao_maxima === 'number' ? item.pontuacao_maxima : null,
     obrigatorio: item.obrigatorio !== false,
+    ordem: typeof item.ordem === 'number' ? item.ordem : idx + 1,
   }));
 
-  const checklist = ((checklistResult.content as Record<string, unknown>).checklist as Array<Record<string, unknown>> || []).map((item) => ({
-    ...item,
-    id: item.id || generateUUID(),
-    verificado: false,
-    obrigatorio: item.obrigatorio !== false,
-    categoria: typeof item.categoria === 'string' && ['documento', 'conteudo', 'formato', 'prazo'].includes(item.categoria)
+  const normalizedChecklist: ChecklistItem[] = checklist.map((item: any) => ({
+    id: typeof item.id === 'string' && item.id.length > 0 ? item.id : generateUUID(),
+    item: item.item || 'Item não definido',
+    categoria: ['documento', 'conteudo', 'formato', 'prazo'].includes(item.categoria)
       ? item.categoria
       : 'conteudo',
+    obrigatorio: item.obrigatorio !== false,
+    verificado: false,
   }));
 
-  const criteriosAvaliacao = ((criteriosResult.content as Record<string, unknown>).criterios_avaliacao as Array<Record<string, unknown>> || []).map((item) => ({
-    criterio: item.criterio || 'Critério não especificado',
-    peso: typeof item.peso === 'number' ? item.peso : 0,
-    dica: item.dica || '',
-  }));
-
-  const contentEstrategia = estrategiaResult.content as Record<string, unknown>;
-
-  // Montar modelo completo
-  const proposalModel = {
-    titulo: `Modelo de Proposta - ${editalNome}`,
-    resumo_executivo: contentEstrategia.resumo_executivo ||
-      'Análise do edital para construção de proposta competitiva.',
-    estrutura,
-    checklist,
-    criterios_avaliacao: criteriosAvaliacao,
-    anexos_necessarios: contentEstrategia.anexos_necessarios || [],
-    requisitos_obrigatorios: contentEstrategia.requisitos_obrigatorios || [],
-    dicas_estrategicas: contentEstrategia.dicas_estrategicas || [],
-  };
-
-  // Adicionar itens de checklist baseados na estrutura (se não houver para conteúdo)
-  const contentChecklistItems = checklist.filter((c: Record<string, unknown>) => c.categoria === 'conteudo');
-  if (contentChecklistItems.length === 0 && estrutura.length > 0) {
-    estrutura.forEach((section: Record<string, unknown>) => {
-      proposalModel.checklist.push({
+  if (!normalizedChecklist.some((item) => item.categoria === 'conteudo') && normalizedEstrutura.length > 0) {
+    normalizedEstrutura.forEach((section: any) => {
+      normalizedChecklist.push({
         id: generateUUID(),
         item: `Incluir seção "${section.titulo}" na proposta`,
         categoria: 'conteudo',
@@ -265,100 +214,91 @@ async function generateProposalModel(
     });
   }
 
-  // Adicionar itens de checklist baseados nos anexos
-  const docChecklistItems = checklist.filter((c: Record<string, unknown>) => c.categoria === 'documento');
-  if (docChecklistItems.length === 0 && proposalModel.anexos_necessarios.length > 0) {
-    (proposalModel.anexos_necessarios as string[]).forEach((anexo: string) => {
-      proposalModel.checklist.push({
-        id: generateUUID(),
-        item: `Anexar: ${anexo}`,
-        categoria: 'documento',
-        obrigatorio: true,
-        verificado: false,
-      });
-    });
-  }
+  const anexos = Array.isArray(estrategia.anexos_necessarios)
+    ? estrategia.anexos_necessarios.filter((item: any) => typeof item === 'string')
+    : [];
+  const requisitos = Array.isArray(estrategia.requisitos_obrigatorios)
+    ? estrategia.requisitos_obrigatorios.filter((item: any) => typeof item === 'string')
+    : [];
+  const dicas = Array.isArray(estrategia.dicas_estrategicas)
+    ? estrategia.dicas_estrategicas.filter((item: any) => typeof item === 'string')
+    : [];
 
-  return proposalModel;
+  anexos.forEach((anexo: string) => {
+    normalizedChecklist.push({
+      id: generateUUID(),
+      item: `Anexar: ${anexo}`,
+      categoria: 'documento',
+      obrigatorio: true,
+      verificado: false,
+    });
+  });
+
+  return {
+    titulo: `Modelo de Proposta - ${editalNome}`,
+    resumo_executivo: typeof estrategia.resumo_executivo === 'string'
+      ? estrategia.resumo_executivo
+      : 'Análise do edital para construção de proposta competitiva.',
+    estrutura: normalizedEstrutura,
+    checklist: normalizedChecklist,
+    criterios_avaliacao: criteriosAvaliacao.map((item: any) => ({
+      criterio: item.criterio || 'Critério não especificado',
+      peso: typeof item.peso === 'number' ? item.peso : 0,
+      dica: item.dica || '',
+    })),
+    anexos_necessarios: anexos,
+    requisitos_obrigatorios: requisitos,
+    dicas_estrategicas: dicas,
+  };
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { status: 204, headers: corsHeaders });
   }
 
   try {
     const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
-
     if (!GEMINI_API_KEY) {
-      return new Response(
-        JSON.stringify({ error: 'AI service not configured. Please set GEMINI_API_KEY.' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      throw new Error('GEMINI_API_KEY não está configurada.');
     }
 
-    // Autenticar usuário
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Authorization required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Authorization required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2.49.4");
-    const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-    const SUPABASE_ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabaseAuth = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const token = authHeader.replace('Bearer ', '');
-    // Nota: Em um setup de dois projetos, o token JWT do projeto principal não pode ser verificado 
-    // pelo projeto de IA sem compartilhar segredos. Como verify_jwt=false está no config.toml,
-    // confiamos na anon-key e na autenticação do frontend para uso como utilitário.
-    console.log(`Bypassing strict JWT check for cross-project utility. Client token present: ${!!token}`);
-
-    const { criteriosText, editalNome, editalId } = await req.json();
+    const body = await req.json().catch(() => null);
+    const criteriosText = body?.criteriosText;
+    const editalNome = body?.editalNome;
 
     if (!criteriosText || typeof criteriosText !== 'string' || criteriosText.length < 50) {
-      return new Response(
-        JSON.stringify({ error: 'Critérios insuficientes para gerar modelo de proposta' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ error: 'Critérios insuficientes para gerar modelo de proposta' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    console.log(`Generating proposal model for edital: ${editalNome} (${editalId})`);
+    if (!editalNome || typeof editalNome !== 'string') {
+      return new Response(JSON.stringify({ error: 'Nome do edital inválido' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
-    const proposalModel = (await generateProposalModel(
-      criteriosText,
-      editalNome,
-      GEMINI_API_KEY
-    )) as Record<string, unknown>;
+    const proposalModel = await generateProposalModel(criteriosText, editalNome, GEMINI_API_KEY);
 
-    console.log(`Proposal model generated successfully with ${(proposalModel.estrutura as unknown[]).length} sections and ${(proposalModel.checklist as unknown[]).length} checklist items`);
-
-    // Opcional: Salvar o modelo no banco de dados
-    // const { error: saveError } = await supabaseAuth.from('proposal_models').insert({
-    //   edital_id: editalId,
-    //   model_data: proposalModel,
-    // });
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        proposalModel,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return new Response(JSON.stringify({ success: true, proposalModel }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   } catch (error) {
-    console.error('Error in generate-proposal-model:', error);
-    return new Response(
-      JSON.stringify({
-        error: error instanceof Error ? error.message : 'Erro ao gerar modelo de proposta'
-      }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error('Erro na função generate-proposal-model:', error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
 });
