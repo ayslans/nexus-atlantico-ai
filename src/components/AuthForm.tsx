@@ -49,10 +49,10 @@ export function AuthForm() {
             <FileSearch className="w-8 h-8 text-primary-foreground" />
           </div>
           <CardTitle className="text-2xl font-semibold">
-            {isLogin ? 'Entrar' : 'Criar Conta'}
+            Bem-vindo ao Nexus AI
           </CardTitle>
           <CardDescription>
-            Sistema de Extração de Critérios de Editais
+            {isLogin ? 'Entre com suas credenciais para continuar' : 'Crie uma conta para começar a analisar editais'}
           </CardDescription>
         </CardHeader>
         <CardContent>
