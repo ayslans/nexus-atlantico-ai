@@ -92,15 +92,15 @@ async function callGemini(systemPrompt: string, userContent: string, geminiKey: 
     if (geminiResponse.ok) {
       const data = await geminiResponse.json();
       const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-      return { success: true, content };
+      return { success: true, content, error: null };
     } else {
       const error = await geminiResponse.text();
       console.error('Gemini error:', geminiResponse.status, error);
-      return { success: false, content: null };
+      return { success: false, content: null, error: `Gemini API: ${geminiResponse.status} - ${error}` };
     }
   } catch (error) {
     console.error('Gemini call failed:', error);
-    return { success: false, content: null };
+    return { success: false, content: null, error: error instanceof Error ? error.message : 'Falha na requisição de rede para a API' };
   }
 }
 
@@ -163,13 +163,19 @@ serve(async (req) => {
 
     console.log(`Analyzing with persona: ${selectedPersona.name} for edital: ${editalNome}`);
 
-    const userContent = `Analise os seguintes critérios extraídos do edital "${editalNome}":\n\n${criteriosText}`;
+    // Limitar o texto para evitar estouro de tokens (gemini-2.0-flash tem limite alto, mas a cota gratuita corta payloads massivos)
+    const MAX_CONTEXT_LENGTH = 150000;
+    const truncatedCriterios = criteriosText.length > MAX_CONTEXT_LENGTH 
+      ? criteriosText.substring(0, MAX_CONTEXT_LENGTH) + '\n\n[...CRITÉRIOS TRUNCADOS DEVIDO AO TAMANHO...]'
+      : criteriosText;
+
+    const userContent = `Analise os seguintes critérios extraídos do edital "${editalNome}":\n\n${truncatedCriterios}`;
 
     const aiResult = await callGemini(selectedPersona.prompt, userContent, GEMINI_API_KEY);
 
     if (!aiResult.success) {
       return new Response(
-        JSON.stringify({ error: 'Erro ao processar análise com IA' }),
+        JSON.stringify({ error: aiResult.error || 'Erro ao processar análise com IA' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

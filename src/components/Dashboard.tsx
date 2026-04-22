@@ -323,7 +323,7 @@ export function Dashboard() {
               <FileSearch className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold">ETL Editais</h1>
+              <h1 className="text-lg font-semibold">Nexus AI</h1>
               <p className="text-xs text-muted-foreground">Extração de Critérios</p>
             </div>
           </div>

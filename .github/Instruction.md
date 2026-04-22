@@ -1,4 +1,4 @@
-# Copilot instructions — Tender Hunter AI
+# Copilot instructions — Nexus AI
 
 This file gives concise, project-specific guidance for AI coding agents working on this repo.
 

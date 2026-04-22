@@ -136,7 +136,7 @@ export function SearchCriterios({ editais, criterios, onBack }: SearchCriteriosP
       // Cabeçalho do Relatório
       let currentY = pdf.addHeader({
         title: 'Relatório de Análise de Critérios',
-        subtitle: `Exportado de Tender Hunter AI em ${now.toLocaleDateString('pt-br')}`,
+        subtitle: `Exportado de Nexus AI em ${now.toLocaleDateString('pt-br')}`,
       });
       
       // Estatísticas

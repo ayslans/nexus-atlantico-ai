@@ -1,4 +1,4 @@
-# Tender Hunter AI
+# Nexus AI
 
 ## Project info
 

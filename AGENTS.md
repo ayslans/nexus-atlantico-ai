@@ -4,7 +4,7 @@ This file provides guidance to WARP (warp.dev) when working with code in this re
 
 ## Overview
 
-Tender Hunter AI is a Vite + React (TypeScript) frontend that uploads edital PDFs (Brazilian public tender documents), extracts criteria, and runs AI analyses via Supabase Edge Functions (Deno) that call Google Gemini 2.0 Flash.
+Nexus AI is a Vite + React (TypeScript) frontend that uploads edital PDFs (Brazilian public tender documents), extracts criteria, and runs AI analyses via Supabase Edge Functions (Deno) that call Google Gemini 2.0 Flash.
 
 **Key runtime split**: frontend (client-side React) and serverless AI workers under `supabase/functions`.
 
