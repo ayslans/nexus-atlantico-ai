@@ -483,98 +483,105 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
   const exportFullReportPDF = useCallback(() => {
     if (!proposalModel) return;
 
-    const pdf = new PDFGenerator({ orientation: 'portrait' });
-    const now = new Date();
+    try {
+      const pdf = new PDFGenerator({ orientation: 'portrait' });
+      const now = new Date();
 
-    // Cabeçalho
-    let currentY = pdf.addHeader({
-      title: `Relatório Estratégico: ${edital.nome}`,
-      subtitle: 'Modelo de Proposta & Análise de Conformidade',
-      date: now,
-      companyName: 'Tender Hunter AI',
-    }) as any;
+      // Cabeçalho
+      let currentY = pdf.addHeader({
+        title: `Relatório: ${edital.nome}`,
+        subtitle: 'Análise Estratégica de Proposta',
+        date: now,
+      });
 
-    // Seção 1: Resumo Executivo
-    currentY = pdf.addSection('1. Resumo Executivo', currentY);
-    currentY = pdf.addParagraph(proposalModel.resumo_executivo, currentY, 10);
+      // SEÇÃO 1: Resumo Executivo
+      currentY = pdf.addSection('1. Resumo Executivo', currentY);
+      currentY = pdf.addParagraph(proposalModel.resumo_executivo, currentY, 10);
 
-    // Seção 2: Estrutura da Proposta
-    currentY = pdf.addSection('2. Estrutura Recomendada', currentY);
-    
-    proposalModel.estrutura.forEach((section, idx) => {
-      currentY = pdf.addParagraph(
-        `${idx + 1}. ${section.titulo}${section.obrigatorio ? ' [OBRIGATÓRIO]' : ''}`,
-        currentY,
-        11,
-        true
-      );
-      currentY = pdf.addParagraph(section.descricao, currentY, 9);
-      
-      if (section.pontuacao_maxima) {
-        currentY = pdf.addHighlightBox(
-          '📋 Conteúdo Sugerido & Pontuação',
-          `${section.conteudo_sugerido}\n\n⭐ Pontuação máxima: ${section.pontuacao_maxima} pontos`,
-          currentY
+      // SEÇÃO 2: Estrutura da Proposta
+      currentY = pdf.addSection('2. Estrutura Recomendada', currentY);
+
+      proposalModel.estrutura.forEach((section, idx) => {
+        const sectionTitle = `${idx + 1}. ${section.titulo}${section.obrigatorio ? ' [OBRIGATÓRIO]' : ''}`;
+        currentY = pdf.addParagraph(sectionTitle, currentY, 11, true);
+        currentY = pdf.addParagraph(section.descricao, currentY, 9);
+
+        if (section.pontuacao_maxima) {
+          const boxContent = `Conteúdo: ${section.conteudo_sugerido.substring(0, 150)}...\n\nPontuação máxima: ${section.pontuacao_maxima} pontos`;
+          currentY = pdf.addHighlightBox('Especificações da Seção', boxContent, currentY);
+        } else {
+          currentY = pdf.addParagraph(`Sugestão: ${section.conteudo_sugerido.substring(0, 150)}...`, currentY, 8);
+        }
+      });
+
+      // SEÇÃO 3: Checklist de Conformidade
+      currentY = pdf.addSection('3. Checklist de Conformidade', currentY);
+
+      const checklistRows = checklist.map(item => [
+        item.verificado ? '✓' : '○',
+        item.item.substring(0, 80),
+        item.categoria,
+      ]);
+
+      // Dividir em lotes de 15 itens por tabela
+      for (let i = 0; i < checklistRows.length; i += 15) {
+        const batchRows = checklistRows.slice(i, i + 15);
+        currentY = pdf.addTable(
+          ['OK', 'Requisito', 'Categoria'],
+          batchRows,
+          currentY,
+          [15, 130, 35]
         );
-      } else {
-        currentY = pdf.addParagraph(`📌 Conteúdo sugerido: ${section.conteudo_sugerido}`, currentY, 9);
+        currentY += 2;
       }
-    });
 
-    // Seção 3: Checklist de Conformidade
-    currentY = pdf.addSection('3. Checklist de Conformidade', currentY);
-    
-    const checklistRows = checklist.map(item => [
-      item.verificado ? '✓' : '○',
-      item.item,
-      item.categoria,
-    ]);
-    
-    currentY = pdf.addTable(
-      ['Status', 'Requisito', 'Categoria'],
-      checklistRows,
-      currentY,
-      { columnWidths: [20, 120, 50] }
-    );
+      const checklistProgress = Math.round(
+        (checklist.filter(i => i.verificado).length / checklist.length) * 100
+      );
+      const progressText = `${checklist.filter(i => i.verificado).length}/${checklist.length} itens verificados (${checklistProgress}%)`;
+      currentY = pdf.addHighlightBox('Progresso', progressText, currentY);
 
-    const checklistProgress = Math.round((checklist.filter(i => i.verificado).length / checklist.length) * 100);
-    currentY = pdf.addHighlightBox(
-      '📊 Progresso de Conformidade',
-      `${checklist.filter(i => i.verificado).length} de ${checklist.length} itens verificados (${checklistProgress}%)`,
-      currentY
-    );
+      // SEÇÃO 4: Simulação de Proposta
+      if (simulatedProposal && simulatedProposal.trim().length > 0) {
+        currentY = pdf.addPageBreak();
+        currentY = pdf.addSection('4. Simulação de Proposta (Draft IA)', currentY);
 
-    // Seção 4: Simulação de Proposta (se disponível)
-    if (simulatedProposal) {
+        // Limpar markdown e excesso de conteúdo
+        const cleanText = simulatedProposal
+          .replace(/#{1,6}\s/g, '')
+          .replace(/\*\*/g, '')
+          .replace(/\*/g, '')
+          .replace(/`/g, '')
+          .substring(0, 3000); // Limitar a 3000 caracteres
+
+        currentY = pdf.addParagraph(cleanText, currentY, 9);
+      }
+
+      // SEÇÃO FINAL: Rodapé
       currentY = pdf.addPageBreak();
-      currentY = pdf.addSection('4. Simulação de Proposta (Draft IA)', currentY);
-      
-      // Simplificar o conteúdo markdown para texto plano
-      const plainText = simulatedProposal
-        .replace(/#{1,6}\s/g, '')
-        .replace(/\*\*/g, '')
-        .replace(/\*/g, '')
-        .replace(/`/g, '');
-      
-      currentY = pdf.addParagraph(plainText, currentY, 9);
+      currentY = pdf.addSection('Informações do Documento', currentY);
+      currentY = pdf.addParagraph(
+        `Relatório gerado automaticamente em ${now.toLocaleString('pt-BR')} pelo Tender Hunter AI.\n\nEste documento é confidencial e contém análise estratégica para elaboração de propostas.`,
+        currentY,
+        8
+      );
+
+      // Salvar PDF
+      const safeFilename = edital.nome.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      pdf.save(`relatorio-${safeFilename}-${now.toISOString().slice(0, 10)}.pdf`);
+
+      toast({
+        title: '✅ Relatório em PDF gerado com sucesso!',
+        description: 'Arquivo pronto para download',
+      });
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      toast({
+        title: '❌ Erro ao gerar PDF',
+        description: 'Tente novamente ou use o formato Markdown',
+        variant: 'destructive',
+      });
     }
-
-    // Rodapé
-    currentY = pdf.addSection('Informações do Documento', currentY);
-    currentY = pdf.addParagraph(
-      `Documento gerado automaticamente pelo Tender Hunter AI em ${now.toLocaleString('pt-BR')}. Este relatório contém análise estratégica para elaboração de proposta e é confidencial. Todos os direitos reservados.`,
-      currentY,
-      8
-    );
-
-    // Salvar
-    const filename = `relatorio-${edital.nome.replace(/[^a-z0-9]/gi, '-').toLowerCase()}.pdf`;
-    pdf.save(filename);
-
-    toast({
-      title: '✅ Relatório exportado com sucesso!',
-      description: `Arquivo: ${filename}`,
-    });
   }, [proposalModel, edital.nome, checklist, simulatedProposal, toast]);
 
   // Renderizar conteúdo específico da aba Características

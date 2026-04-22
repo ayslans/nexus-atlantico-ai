@@ -129,58 +129,63 @@ export function SearchCriterios({ editais, criterios, onBack }: SearchCriteriosP
   const exportPDF = useCallback(async () => {
     if (filtered.length === 0) return;
 
-    const pdf = new PDFGenerator({ orientation: 'landscape' });
-    const now = new Date();
+    try {
+      const pdf = new PDFGenerator({ orientation: 'landscape' });
+      const now = new Date();
 
-    // Cabeçalho
-    pdf.addHeader({
-      title: 'Critérios Extraídos',
-      subtitle: 'Relatório de Análise de Editais',
-      date: now,
-      companyName: 'Tender Hunter AI',
-    });
+      // Cabeçalho
+      let currentY = pdf.addHeader({
+        title: 'Critérios Extraídos',
+        subtitle: 'Relatório de Análise de Editais',
+        date: now,
+      });
 
-    let currentY = 50;
+      // Estatísticas
+      const editaisUnicos = new Set(filtered.map(c => c.edital_id)).size;
+      const stats = `Total de Critérios: ${filtered.length} | Editais: ${editaisUnicos} | Seções: ${allSecoes.length}`;
+      currentY = pdf.addHighlightBox('📊 Resumo dos Dados', stats, currentY);
 
-    // Estatísticas
-    const stats = `Total de Critérios: ${filtered.length} | Editais: ${new Set(filtered.map(c => c.edital_id)).size} | Seções: ${allSecoes.length}`;
-    currentY = pdf.addHighlightBox('📊 Resumo dos Dados', stats, currentY);
+      // Seção de Critérios
+      currentY = pdf.addSection('Critérios Detalhados', currentY);
 
-    // Seção de Critérios
-    currentY = pdf.addSection('Critérios Detalhados', currentY);
+      // Preparar dados da tabela (limitar tamanho do conteúdo)
+      const rows = filtered.map((c) => [
+        editalMap[c.edital_id]?.nome || '—',
+        c.secao || '—',
+        c.titulo || `Critério ${c.ordem}`,
+        c.conteudo.substring(0, 200) + (c.conteudo.length > 200 ? '...' : ''),
+      ]);
 
-    // Preparar dados da tabela
-    const rows = filtered.map((c) => [
-      editalMap[c.edital_id]?.nome || '—',
-      c.secao || '—',
-      c.titulo || `Critério ${c.ordem}`,
-      c.conteudo.substring(0, 250) + (c.conteudo.length > 250 ? '...' : ''),
-    ]);
+      // Adicionar tabela com larguras específicas
+      currentY = pdf.addTable(
+        ['Edital', 'Seção', 'Título', 'Conteúdo'],
+        rows,
+        currentY,
+        [50, 30, 50, 70]
+      );
 
-    // Adicionar tabela
-    currentY = pdf.addTable(
-      ['Edital', 'Seção', 'Título', 'Conteúdo'],
-      rows,
-      currentY,
-      {
-        columnWidths: [60, 40, 60, 100],
-      }
-    );
+      // Rodapé
+      currentY = pdf.addSection('Informações do Documento', currentY);
+      currentY = pdf.addParagraph(
+        `Gerado em ${now.toLocaleString('pt-BR')} pelo Tender Hunter AI. Para atualizar, consulte a plataforma.`,
+        currentY,
+        8
+      );
 
-    // Rodapé com informações
-    currentY = pdf.addSection('Informações Adicionais', currentY);
-    currentY = pdf.addParagraph(
-      `Este documento foi gerado automaticamente pelo Tender Hunter AI em ${now.toLocaleString('pt-BR')}. Para mais informações sobre os critérios, consulte a plataforma.`,
-      currentY,
-      9,
-      false
-    );
-
-    // Salvar PDF
-    const filename = `criterios_${now.toISOString().slice(0, 10)}.pdf`;
-    pdf.save(filename);
-
-    toast({ title: `✅ ${filtered.length} critérios exportados para PDF`, description: `Arquivo: ${filename}` });
+      // Salvar
+      pdf.save(`criterios_${now.toISOString().slice(0, 10)}.pdf`);
+      toast({
+        title: '✅ PDF exportado com sucesso!',
+        description: `${filtered.length} critérios exportados`,
+      });
+    } catch (error) {
+      console.error('Erro ao exportar PDF:', error);
+      toast({
+        title: '❌ Erro ao exportar PDF',
+        description: 'Tente novamente ou use o formato CSV',
+        variant: 'destructive',
+      });
+    }
   }, [filtered, editalMap, allSecoes, toast]);
 
   return (
