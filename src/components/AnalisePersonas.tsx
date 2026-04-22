@@ -223,10 +223,10 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
 
       const data = await response.json();
       setAnalyses(prev => ({ ...prev, [persona]: data.analysis }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Erro na análise',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
         variant: 'destructive',
       });
     } finally {
@@ -275,8 +275,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       if (error) throw error;
       toast({ title: 'Saída salva com sucesso!' });
       fetchUltimaSaida();
-    } catch (e: any) {
-      toast({ title: 'Erro ao salvar', description: e.message, variant: 'destructive' });
+    } catch (e: unknown) {
+      toast({ title: 'Erro ao salvar', description: e instanceof Error ? e.message : 'Erro desconhecido', variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -331,10 +331,10 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
 
       // O salvamento no localStorage ocorrerá via useEffect
       toast({ title: 'Modelo de proposta gerado com sucesso!' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: 'Erro ao gerar modelo',
-        description: error.message,
+        description: error instanceof Error ? error.message : 'Erro desconhecido',
         variant: 'destructive',
       });
     } finally {
@@ -378,8 +378,8 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
       setSimulatedProposal(data.proposal);
       localStorage.setItem(`proposal_simulation_${edital.id}`, data.proposal);
       toast({ title: 'Simulação de proposta concluída!' });
-    } catch (error: any) {
-      toast({ title: 'Erro na simulação', description: error.message, variant: 'destructive' });
+    } catch (error: unknown) {
+      toast({ title: 'Erro na simulação', description: error instanceof Error ? error.message : 'Erro desconhecido', variant: 'destructive' });
     } finally {
       setIsSimulating(false);
     }

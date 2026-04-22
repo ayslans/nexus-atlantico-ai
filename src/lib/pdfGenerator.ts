@@ -187,7 +187,7 @@ export class PDFGenerator {
     };
 
     try {
-      (this.doc as any).autoTable({
+      (this.doc as jsPDF & { autoTable: (options: JsPdfAutoTableOptions) => void }).autoTable({
         head: [headers],
         body: rows,
         startY: currentY,
@@ -199,12 +199,12 @@ export class PDFGenerator {
         alternateRowStyles: {
           fillColor: this.colors.lightGray,
         },
-        didDrawPage: (data: any) => {
+        didDrawPage: () => {
           // Lógica para cabeçalho/rodapé em cada página da tabela, se necessário
         }
       });
 
-      const finalY = (this.doc as any).lastAutoTable.finalY;
+      const finalY = (this.doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
       return finalY + 8;
 
     } catch (error) {
