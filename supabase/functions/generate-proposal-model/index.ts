@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Edge function para geração avançada de modelo de proposta usando IA
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
@@ -109,7 +108,7 @@ async function callGeminiWithRetry(
   userContent: string,
   geminiKey: string,
   maxRetries: number = 3
-): Promise<{ success: boolean; content: any }> {
+): Promise<{ success: boolean; content: unknown }> {
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       console.log(`Gemini call attempt ${attempt + 1}/${maxRetries}`);
@@ -196,7 +195,7 @@ async function generateProposalModel(
   criteriosText: string,
   editalNome: string,
   geminiKey: string
-): Promise<any> {
+): Promise<unknown> {
   console.log(`Generating proposal model for: ${editalNome}`);
 
   // Executar análises em paralelo para otimizar tempo
@@ -214,60 +213,62 @@ async function generateProposalModel(
   }
 
   // Garantir que todos os itens tenham IDs únicos
-  const estrutura = (estruturaResult.content.estrutura || []).map((item: any, idx: number) => ({
+  const estrutura = ((estruturaResult.content as Record<string, unknown>).estrutura as Array<Record<string, unknown>> || []).map((item, idx: number) => ({
     ...item,
     id: item.id || generateUUID(),
     ordem: item.ordem || idx + 1,
     obrigatorio: item.obrigatorio !== false,
   }));
 
-  const checklist = (checklistResult.content.checklist || []).map((item: any) => ({
+  const checklist = ((checklistResult.content as Record<string, unknown>).checklist as Array<Record<string, unknown>> || []).map((item) => ({
     ...item,
     id: item.id || generateUUID(),
     verificado: false,
     obrigatorio: item.obrigatorio !== false,
-    categoria: ['documento', 'conteudo', 'formato', 'prazo'].includes(item.categoria)
+    categoria: typeof item.categoria === 'string' && ['documento', 'conteudo', 'formato', 'prazo'].includes(item.categoria)
       ? item.categoria
       : 'conteudo',
   }));
 
-  const criteriosAvaliacao = (criteriosResult.content.criterios_avaliacao || []).map((item: any) => ({
+  const criteriosAvaliacao = ((criteriosResult.content as Record<string, unknown>).criterios_avaliacao as Array<Record<string, unknown>> || []).map((item) => ({
     criterio: item.criterio || 'Critério não especificado',
     peso: typeof item.peso === 'number' ? item.peso : 0,
     dica: item.dica || '',
   }));
 
+  const contentEstrategia = estrategiaResult.content as Record<string, unknown>;
+
   // Montar modelo completo
   const proposalModel = {
     titulo: `Modelo de Proposta - ${editalNome}`,
-    resumo_executivo: estrategiaResult.content.resumo_executivo ||
+    resumo_executivo: contentEstrategia.resumo_executivo ||
       'Análise do edital para construção de proposta competitiva.',
     estrutura,
     checklist,
     criterios_avaliacao: criteriosAvaliacao,
-    anexos_necessarios: estrategiaResult.content.anexos_necessarios || [],
-    requisitos_obrigatorios: estrategiaResult.content.requisitos_obrigatorios || [],
-    dicas_estrategicas: estrategiaResult.content.dicas_estrategicas || [],
+    anexos_necessarios: contentEstrategia.anexos_necessarios || [],
+    requisitos_obrigatorios: contentEstrategia.requisitos_obrigatorios || [],
+    dicas_estrategicas: contentEstrategia.dicas_estrategicas || [],
   };
 
   // Adicionar itens de checklist baseados na estrutura (se não houver para conteúdo)
-  const contentChecklistItems = checklist.filter((c: any) => c.categoria === 'conteudo');
+  const contentChecklistItems = checklist.filter((c: Record<string, unknown>) => c.categoria === 'conteudo');
   if (contentChecklistItems.length === 0 && estrutura.length > 0) {
-    estrutura.forEach((section: any) => {
+    estrutura.forEach((section: Record<string, unknown>) => {
       proposalModel.checklist.push({
         id: generateUUID(),
         item: `Incluir seção "${section.titulo}" na proposta`,
         categoria: 'conteudo',
-        obrigatorio: section.obrigatorio,
+        obrigatorio: Boolean(section.obrigatorio),
         verificado: false,
       });
     });
   }
 
   // Adicionar itens de checklist baseados nos anexos
-  const docChecklistItems = checklist.filter((c: any) => c.categoria === 'documento');
+  const docChecklistItems = checklist.filter((c: Record<string, unknown>) => c.categoria === 'documento');
   if (docChecklistItems.length === 0 && proposalModel.anexos_necessarios.length > 0) {
-    proposalModel.anexos_necessarios.forEach((anexo: string) => {
+    (proposalModel.anexos_necessarios as string[]).forEach((anexo: string) => {
       proposalModel.checklist.push({
         id: generateUUID(),
         item: `Anexar: ${anexo}`,
@@ -329,13 +330,13 @@ serve(async (req) => {
 
     console.log(`Generating proposal model for edital: ${editalNome} (${editalId})`);
 
-    const proposalModel = await generateProposalModel(
+    const proposalModel = (await generateProposalModel(
       criteriosText,
       editalNome,
       GEMINI_API_KEY
-    );
+    )) as Record<string, unknown>;
 
-    console.log(`Proposal model generated successfully with ${proposalModel.estrutura.length} sections and ${proposalModel.checklist.length} checklist items`);
+    console.log(`Proposal model generated successfully with ${(proposalModel.estrutura as unknown[]).length} sections and ${(proposalModel.checklist as unknown[]).length} checklist items`);
 
     // Opcional: Salvar o modelo no banco de dados
     // const { error: saveError } = await supabaseAuth.from('proposal_models').insert({

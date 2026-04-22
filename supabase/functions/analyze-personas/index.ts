@@ -1,4 +1,3 @@
-// @ts-nocheck
 // Este arquivo é destinado à execução em ambiente Deno/Supabase Edge Functions.
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
