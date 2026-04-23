@@ -1,4 +1,4 @@
-﻿// @ts-ignore: remote Deno std import for runtime
+// @ts-ignore: remote Deno std import for runtime
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { callGeminiWithRetry } from "../_shared/gemini.ts";
@@ -178,8 +178,14 @@ async function generateProposalModel(
 ): Promise<Record<string, unknown>> {
   console.log(`Gerando modelo de proposta para: ${editalNome}`);
 
+  // Truncar criterios para evitar desperdício de tokens — 40k chars (~10k tokens) é mais que suficiente
+  const MAX_CRITERIOS_LENGTH = 40_000;
+  const truncatedCriterios = criteriosText.length > MAX_CRITERIOS_LENGTH
+    ? criteriosText.substring(0, MAX_CRITERIOS_LENGTH) + '\n\n[...CRITÉRIOS TRUNCADOS...]'
+    : criteriosText;
+
   // Consolidar em uma única chamada ao Gemini
-  const consolidatedPrompt = CONSOLIDATED_PROMPT.replace('{criterios}', criteriosText);
+  const consolidatedPrompt = CONSOLIDATED_PROMPT.replace('{criterios}', truncatedCriterios);
   
   const result = await callGemini(consolidatedPrompt, '', geminiKey);
 

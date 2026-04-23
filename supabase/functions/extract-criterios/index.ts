@@ -7,7 +7,7 @@ import { callGeminiWithRetry } from "../_shared/gemini.ts";
 
 // Chunking: processar editais longos em partes para maior assertividade e cobertura
 const CHUNK_SIZE = 85_000;
-const CHUNK_OVERLAP = 3_000;
+const CHUNK_OVERLAP = 1_000; // Reduzido de 3000: overlap menor economiza tokens sem perder contexto nas fronteiras
 const MAX_CHUNKS = 25;
 
 interface CriterioRaw {

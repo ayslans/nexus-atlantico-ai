@@ -131,8 +131,8 @@ serve(async (req) => {
 
     console.log(`Analyzing with persona: ${selectedPersona.name} for edital: ${editalNome}`);
 
-    // Limitar o texto para evitar estouro de tokens
-    const MAX_CONTEXT_LENGTH = 150000;
+    // Limitar o texto para evitar estouro de tokens — 60k chars (~15k tokens) é suficiente para qualquer edital real
+    const MAX_CONTEXT_LENGTH = 60_000;
     const truncatedCriterios = criteriosText.length > MAX_CONTEXT_LENGTH 
       ? criteriosText.substring(0, MAX_CONTEXT_LENGTH) + '\n\n[...CRITÉRIOS TRUNCADOS DEVIDO AO TAMANHO...]'
       : criteriosText;
@@ -180,6 +180,23 @@ serve(async (req) => {
       }
 
       content = aiResult.content;
+
+      // Gravar no cache para evitar chamadas repetidas com os mesmos critérios
+      if (SUPABASE_SERVICE_ROLE_KEY && content) {
+        try {
+          const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+          const cacheKey = await generateCacheKey(truncatedCriterios, persona);
+          await supabaseAdmin
+            .from('analise_personas_saidas')
+            .upsert(
+              { persona, hash_criterios: cacheKey, saida: content },
+              { onConflict: 'persona,hash_criterios', ignoreDuplicates: false }
+            );
+          console.log(`Cache gravado para persona: ${persona}`);
+        } catch (e) {
+          console.warn('Falha ao gravar cache, continuando:', e);
+        }
+      }
     }
 
     if (!content) {

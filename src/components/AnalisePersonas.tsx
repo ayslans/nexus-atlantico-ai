@@ -366,8 +366,13 @@ export function AnalisePersonas({ edital, criterios, onBack }: AnalisePersonasPr
           },
           body: JSON.stringify({
             proposalModel,
-            criteriosText: buildCriteriosText(),
-            analyses,
+            // Truncar análises e critérios para evitar desperdício de tokens na simulação
+            criteriosText: buildCriteriosText().substring(0, 3_000),
+            analyses: {
+              auditor: analyses.auditor?.substring(0, 1_500) || 'N/A',
+              consultor: analyses.consultor?.substring(0, 1_500) || 'N/A',
+              orcamentario: analyses.orcamentario?.substring(0, 1_500) || 'N/A',
+            },
             editalNome: edital.nome,
           }),
         }
