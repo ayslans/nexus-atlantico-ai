@@ -62,7 +62,15 @@ Responda em formato markdown estruturado. Utilize um tom extremamente profission
   }
 };
 
-
+// Gera hash SHA-256 dos critérios para cache key
+async function generateCacheKey(criteriosText: string, persona: string): Promise<string> {
+  const combined = `${persona}:${criteriosText}`;
+  const encoder = new TextEncoder();
+  const data = encoder.encode(combined);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -123,26 +131,56 @@ serve(async (req) => {
 
     console.log(`Analyzing with persona: ${selectedPersona.name} for edital: ${editalNome}`);
 
-    // Limitar o texto para evitar estouro de tokens (gemini-2.0-flash tem limite alto, mas a cota gratuita corta payloads massivos)
+    // Limitar o texto para evitar estouro de tokens
     const MAX_CONTEXT_LENGTH = 150000;
     const truncatedCriterios = criteriosText.length > MAX_CONTEXT_LENGTH 
       ? criteriosText.substring(0, MAX_CONTEXT_LENGTH) + '\n\n[...CRITÉRIOS TRUNCADOS DEVIDO AO TAMANHO...]'
       : criteriosText;
 
-    const userContent = `Analise os seguintes critérios extraídos do edital "${editalNome}":\n\n${truncatedCriterios}`;
-
-    const aiResult = await callGeminiWithRetry(selectedPersona.prompt, userContent, GEMINI_API_KEY, {
-      temperature: 0.7,
-    });
-
-    if (!aiResult.success) {
-      return new Response(
-        JSON.stringify({ error: aiResult.error || 'Erro ao processar análise com IA' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Verificar cache antes de chamar API
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    let cachedAnalysis = null;
+    
+    if (SUPABASE_SERVICE_ROLE_KEY) {
+      try {
+        const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+        const cacheKey = await generateCacheKey(truncatedCriterios, persona);
+        
+        console.log(`Checking cache for persona: ${persona}`);
+        const { data: existing } = await supabaseAdmin
+          .from('analise_personas_saidas')
+          .select('saida')
+          .eq('persona', persona)
+          .eq('hash_criterios', cacheKey)
+          .maybeSingle();
+        
+        if (existing?.saida) {
+          console.log(`Cache HIT para persona: ${persona}`);
+          cachedAnalysis = existing.saida;
+        }
+      } catch (e) {
+        console.warn('Cache lookup failed, proceeding with API call:', e);
+      }
     }
 
-    const content = aiResult.content;
+    let content = cachedAnalysis;
+    
+    if (!content) {
+      const userContent = `Analise os seguintes critérios extraídos do edital "${editalNome}":\n\n${truncatedCriterios}`;
+
+      const aiResult = await callGeminiWithRetry(selectedPersona.prompt, userContent, GEMINI_API_KEY, {
+        temperature: 0.7,
+      });
+
+      if (!aiResult.success) {
+        return new Response(
+          JSON.stringify({ error: aiResult.error || 'Erro ao processar análise com IA' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      content = aiResult.content;
+    }
 
     if (!content) {
       return new Response(

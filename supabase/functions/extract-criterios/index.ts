@@ -215,43 +215,55 @@ serve(async (req) => {
     console.log(`Extracting criteria (${chunks.length} chunk(s))...`);
 
     const allCriterios: CriterioRaw[] = [];
-    for (let i = 0; i < chunks.length; i++) {
-      const partLabel = chunks.length > 1
-        ? `Esta é a parte ${i + 1} de ${chunks.length} do edital. Extraia TODOS os critérios de seleção desta parte.\n\n`
-        : '';
-      const userContent = `${partLabel}${chunks[i]}`;
-      const aiResult = await callGeminiWithRetry(systemPrompt, userContent, GEMINI_API_KEY, {
-        temperature: 0.2,
-        topP: 0.9,
-        maxOutputTokens: 8192,
-      });
+    
+    // Processar chunks em paralelo (5 por vez para evitar rate limit)
+    const PARALLEL_BATCH = 5;
+    for (let i = 0; i < chunks.length; i += PARALLEL_BATCH) {
+      const batchChunks = chunks.slice(i, i + PARALLEL_BATCH);
+      const batchResults = await Promise.all(
+        batchChunks.map((chunk, idx) => {
+          const partLabel = chunks.length > 1
+            ? `Esta é a parte ${i + idx + 1} de ${chunks.length} do edital. Extraia TODOS os critérios de seleção desta parte.\n\n`
+            : '';
+          const userContent = `${partLabel}${chunk}`;
+          return callGeminiWithRetry(systemPrompt, userContent, GEMINI_API_KEY, {
+            temperature: 0.2,
+            topP: 0.9,
+            maxOutputTokens: 8192,
+          });
+        })
+      );
 
-      if (!aiResult.success || !aiResult.content) {
-        console.error(`AI failed on chunk ${i + 1}`);
-        await supabaseAdmin
-          .from('editais')
-          .update({ status: 'erro', erro_mensagem: 'Erro ao processar com IA' })
-          .eq('id', editalId);
-        return new Response(
-          JSON.stringify({ error: 'AI processing failed' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      for (let j = 0; j < batchResults.length; j++) {
+        const aiResult = batchResults[j];
+        
+        if (!aiResult.success || !aiResult.content) {
+          console.error(`AI failed on chunk ${i + j + 1}`);
+          await supabaseAdmin
+            .from('editais')
+            .update({ status: 'erro', erro_mensagem: 'Erro ao processar com IA' })
+            .eq('id', editalId);
+          return new Response(
+            JSON.stringify({ error: 'AI processing failed' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
 
-      try {
-        const parsed = parseCriteriosFromContent(aiResult.content);
-        allCriterios.push(...parsed);
-        console.log(`Chunk ${i + 1}: ${parsed.length} criteria`);
-      } catch (parseError) {
-        console.error(`Parse error on chunk ${i + 1}:`, parseError);
-        await supabaseAdmin
-          .from('editais')
-          .update({ status: 'erro', erro_mensagem: 'Falha ao interpretar resposta da IA' })
-          .eq('id', editalId);
-        return new Response(
-          JSON.stringify({ error: 'Failed to parse AI response' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        try {
+          const parsed = parseCriteriosFromContent(aiResult.content);
+          allCriterios.push(...parsed);
+          console.log(`Chunk ${i + j + 1}: ${parsed.length} criteria`);
+        } catch (parseError) {
+          console.error(`Parse error on chunk ${i + j + 1}:`, parseError);
+          await supabaseAdmin
+            .from('editais')
+            .update({ status: 'erro', erro_mensagem: 'Falha ao interpretar resposta da IA' })
+            .eq('id', editalId);
+          return new Response(
+            JSON.stringify({ error: 'Failed to parse AI response' }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
       }
     }
 

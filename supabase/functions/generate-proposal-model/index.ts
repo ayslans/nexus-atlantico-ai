@@ -3,6 +3,30 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { callGeminiWithRetry } from "../_shared/gemini.ts";
 
+const CONSOLIDATED_PROMPT = `Você é um especialista sênior em propostas para editais de fomento. Analise os critérios abaixo E RETORNE UM ÚNICO JSON com 4 seções.
+
+CRITÉRIOS DO EDITAL:
+{criterios}
+
+RETORNE APENAS este JSON (válido e completo):
+{
+  "estrutura": [
+    {"id":"uuid","titulo":"","descricao":"","conteudo_sugerido":"","pontuacao_maxima":null,"obrigatorio":true,"ordem":1}
+  ],
+  "checklist": [
+    {"id":"uuid","item":"","categoria":"documento|conteudo|formato|prazo","obrigatorio":true}
+  ],
+  "criterios_avaliacao": [
+    {"criterio":"","peso":0,"dica":""}
+  ],
+  "analise_estrategica": {
+    "resumo_executivo":"",
+    "anexos_necessarios":[],
+    "requisitos_obrigatorios":[],
+    "dicas_estrategicas":[]
+  }
+}`;
+
 const ANALYSIS_PROMPTS = {
   estrutura: `Você é um especialista em elaboração de propostas para editais de fomento. Analise os critérios do edital e extraia a ESTRUTURA COMPLETA que a proposta deve seguir.
 
@@ -154,33 +178,20 @@ async function generateProposalModel(
 ): Promise<Record<string, unknown>> {
   console.log(`Gerando modelo de proposta para: ${editalNome}`);
 
-  const [estruturaResult, checklistResult, criteriosResult, estrategiaResult] = await Promise.all([
-    callGemini(ANALYSIS_PROMPTS.estrutura, criteriosText, geminiKey),
-    callGemini(ANALYSIS_PROMPTS.checklist, criteriosText, geminiKey),
-    callGemini(ANALYSIS_PROMPTS.criterios_avaliacao, criteriosText, geminiKey),
-    callGemini(ANALYSIS_PROMPTS.analise_estrategica, criteriosText, geminiKey),
-  ]);
+  // Consolidar em uma única chamada ao Gemini
+  const consolidatedPrompt = CONSOLIDATED_PROMPT.replace('{criterios}', criteriosText);
+  
+  const result = await callGemini(consolidatedPrompt, '', geminiKey);
 
-  if (!estruturaResult.success || !checklistResult.success || !criteriosResult.success || !estrategiaResult.success) {
-    const errors = [estruturaResult, checklistResult, criteriosResult, estrategiaResult]
-      .filter((result) => !result.success)
-      .map((result) => String(result.content));
-    throw new Error(`Falha em uma ou mais análises de IA: ${errors.join(' | ')}`);
+  if (!result.success || !result.content) {
+    throw new Error('Falha ao gerar análises consolidadas');
   }
 
-  const estrutura = Array.isArray((estruturaResult.content as any).estrutura)
-    ? (estruturaResult.content as any).estrutura
-    : [];
-
-  const checklist = Array.isArray((checklistResult.content as any).checklist)
-    ? (checklistResult.content as any).checklist
-    : [];
-
-  const criteriosAvaliacao = Array.isArray((criteriosResult.content as any).criterios_avaliacao)
-    ? (criteriosResult.content as any).criterios_avaliacao
-    : [];
-
-  const estrategia = estrategiaResult.content as any || {};
+  const data = result.content as any;
+  const estrutura = Array.isArray(data.estrutura) ? data.estrutura : [];
+  const checklist = Array.isArray(data.checklist) ? data.checklist : [];
+  const criteriosAvaliacao = Array.isArray(data.criterios_avaliacao) ? data.criterios_avaliacao : [];
+  const estrategia = data.analise_estrategica || {};
 
   const normalizedEstrutura = estrutura.map((item: any, idx: number) => ({
     id: typeof item.id === 'string' && item.id.length > 0 ? item.id : generateUUID(),
