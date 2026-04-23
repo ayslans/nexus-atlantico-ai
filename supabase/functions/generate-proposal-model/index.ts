@@ -1,4 +1,4 @@
-// @ts-ignore: remote Deno std import for runtime
+// @ts-expect-error: remote Deno std import for runtime
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { callGeminiWithRetry } from "../_shared/gemini.ts";
@@ -193,34 +193,40 @@ async function generateProposalModel(
     throw new Error('Falha ao gerar análises consolidadas');
   }
 
-  const data = result.content as any;
-  const estrutura = Array.isArray(data.estrutura) ? data.estrutura : [];
-  const checklist = Array.isArray(data.checklist) ? data.checklist : [];
-  const criteriosAvaliacao = Array.isArray(data.criterios_avaliacao) ? data.criterios_avaliacao : [];
-  const estrategia = data.analise_estrategica || {};
+  const data = result.content as Record<string, unknown>;
+  const estrutura = Array.isArray(data.estrutura) ? (data.estrutura as unknown[]) : [];
+  const checklist = Array.isArray(data.checklist) ? (data.checklist as unknown[]) : [];
+  const criteriosAvaliacao = Array.isArray(data.criterios_avaliacao) ? (data.criterios_avaliacao as unknown[]) : [];
+  const estrategia = (data.analise_estrategica as Record<string, unknown>) || {};
 
-  const normalizedEstrutura = estrutura.map((item: any, idx: number) => ({
-    id: typeof item.id === 'string' && item.id.length > 0 ? item.id : generateUUID(),
-    titulo: item.titulo || `Seção ${idx + 1}`,
-    descricao: item.descricao || '',
-    conteudo_sugerido: item.conteudo_sugerido || '',
-    pontuacao_maxima: typeof item.pontuacao_maxima === 'number' ? item.pontuacao_maxima : null,
-    obrigatorio: item.obrigatorio !== false,
-    ordem: typeof item.ordem === 'number' ? item.ordem : idx + 1,
-  }));
+  const normalizedEstrutura = estrutura.map((item: unknown, idx: number) => {
+    const s = item as Record<string, unknown>;
+    return {
+      id: typeof s.id === 'string' && s.id.length > 0 ? s.id : generateUUID(),
+      titulo: (s.titulo as string) || `Seção ${idx + 1}`,
+      descricao: (s.descricao as string) || '',
+      conteudo_sugerido: (s.conteudo_sugerido as string) || '',
+      pontuacao_maxima: typeof s.pontuacao_maxima === 'number' ? s.pontuacao_maxima : null,
+      obrigatorio: s.obrigatorio !== false,
+      ordem: typeof s.ordem === 'number' ? s.ordem : idx + 1,
+    };
+  });
 
-  const normalizedChecklist: ChecklistItem[] = checklist.map((item: any) => ({
-    id: typeof item.id === 'string' && item.id.length > 0 ? item.id : generateUUID(),
-    item: item.item || 'Item não definido',
-    categoria: ['documento', 'conteudo', 'formato', 'prazo'].includes(item.categoria)
-      ? item.categoria
-      : 'conteudo',
-    obrigatorio: item.obrigatorio !== false,
-    verificado: false,
-  }));
+  const normalizedChecklist: ChecklistItem[] = checklist.map((item: unknown) => {
+    const c = item as Record<string, unknown>;
+    return {
+      id: typeof c.id === 'string' && c.id.length > 0 ? c.id : generateUUID(),
+      item: (c.item as string) || 'Item não definido',
+      categoria: (['documento', 'conteudo', 'formato', 'prazo'] as const).includes(c.categoria as ChecklistItem['categoria'])
+        ? (c.categoria as ChecklistItem['categoria'])
+        : 'conteudo' as const,
+      obrigatorio: c.obrigatorio !== false,
+      verificado: false,
+    };
+  });
 
   if (!normalizedChecklist.some((item) => item.categoria === 'conteudo') && normalizedEstrutura.length > 0) {
-    normalizedEstrutura.forEach((section: any) => {
+    normalizedEstrutura.forEach((section) => {
       normalizedChecklist.push({
         id: generateUUID(),
         item: `Incluir seção "${section.titulo}" na proposta`,
@@ -232,13 +238,13 @@ async function generateProposalModel(
   }
 
   const anexos = Array.isArray(estrategia.anexos_necessarios)
-    ? estrategia.anexos_necessarios.filter((item: any) => typeof item === 'string')
+    ? (estrategia.anexos_necessarios as unknown[]).filter((item): item is string => typeof item === 'string')
     : [];
   const requisitos = Array.isArray(estrategia.requisitos_obrigatorios)
-    ? estrategia.requisitos_obrigatorios.filter((item: any) => typeof item === 'string')
+    ? (estrategia.requisitos_obrigatorios as unknown[]).filter((item): item is string => typeof item === 'string')
     : [];
   const dicas = Array.isArray(estrategia.dicas_estrategicas)
-    ? estrategia.dicas_estrategicas.filter((item: any) => typeof item === 'string')
+    ? (estrategia.dicas_estrategicas as unknown[]).filter((item): item is string => typeof item === 'string')
     : [];
 
   anexos.forEach((anexo: string) => {
@@ -258,11 +264,14 @@ async function generateProposalModel(
       : 'Análise do edital para construção de proposta competitiva.',
     estrutura: normalizedEstrutura,
     checklist: normalizedChecklist,
-    criterios_avaliacao: criteriosAvaliacao.map((item: any) => ({
-      criterio: item.criterio || 'Critério não especificado',
-      peso: typeof item.peso === 'number' ? item.peso : 0,
-      dica: item.dica || '',
-    })),
+    criterios_avaliacao: criteriosAvaliacao.map((item: unknown) => {
+      const c = item as Record<string, unknown>;
+      return {
+        criterio: (c.criterio as string) || 'Critério não especificado',
+        peso: typeof c.peso === 'number' ? c.peso : 0,
+        dica: (c.dica as string) || '',
+      };
+    }),
     anexos_necessarios: anexos,
     requisitos_obrigatorios: requisitos,
     dicas_estrategicas: dicas,

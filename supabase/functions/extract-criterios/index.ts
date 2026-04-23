@@ -83,11 +83,12 @@ function parseCriteriosFromContent(content: string): CriterioRaw[] {
   cleaned = cleaned
     .replace(/,\s*}/g, '}')
     .replace(/,\s*]/g, ']')
-    .replace(/[\x00-\x1F\x7F]/g, '');
+    // eslint-disable-next-line no-control-regex
+    .replace(/[\u0000-\u001F\u007F]/g, '');
   const parsed = JSON.parse(cleaned);
   const list = parsed?.criterios ?? [];
   if (!Array.isArray(list)) return [];
-  return list.map((c: any) => ({
+  return list.map((c: Record<string, unknown>) => ({
     titulo: c.titulo != null ? String(c.titulo).trim() || null : null,
     conteudo: typeof c.conteudo === 'string' ? c.conteudo.trim() : String(c.conteudo ?? '').trim(),
     secao: c.secao != null ? String(c.secao).trim() || null : null,
