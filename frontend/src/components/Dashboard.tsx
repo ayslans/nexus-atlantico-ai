@@ -324,7 +324,7 @@ export function Dashboard() {
             </div>
             <div>
               <h1 className="text-lg font-semibold">Nexus AI</h1>
-              <p className="text-xs text-muted-foreground">Extração de Critérios</p>
+              <p className="text-xs text-muted-foreground">Análise Estratégica de Editais</p>
             </div>
           </div>
           <div className="flex items-center gap-2">

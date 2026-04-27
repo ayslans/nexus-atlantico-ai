@@ -3,12 +3,18 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { callGeminiWithRetry } from "../_shared/gemini.ts";
 
-const CONSOLIDATED_PROMPT = `Você é um especialista sênior em propostas para editais de fomento. Analise os critérios abaixo E RETORNE UM ÚNICO JSON com 4 seções.
+const CONSOLIDATED_PROMPT = `Você é um especialista sênior em propostas para editais de fomento público e privado, com experiência em FINEP, CNPq, BNDES e editais internacionais. Analise os critérios abaixo e retorne um único JSON completo e detalhado com 4 seções.
 
 CRITÉRIOS DO EDITAL:
 {criterios}
 
-RETORNE APENAS este JSON (válido e completo):
+DIRETRIZES:
+- Para "estrutura": inclua TODAS as seções obrigatórias e opcionais que uma proposta vencedora deve ter, com descrição detalhada de cada uma e conteúdo sugerido de alto valor.
+- Para "checklist": seja exaustivo — inclua documentos, conteúdos, formatos e prazos que o proponente deve verificar antes de submeter.
+- Para "criterios_avaliacao": extraia os pesos reais do edital e adicione uma dica estratégica acionável para cada critério.
+- Para "analise_estrategica": o resumo_executivo deve ter pelo menos 3 parágrafos contextualizando o edital, o perfil ideal do proponente e a estratégia recomendada. As dicas_estrategicas devem ser concretas e diferenciadas.
+
+RETORNE APENAS este JSON (válido e completo, sem markdown ao redor):
 {
   "estrutura": [
     {"id":"uuid","titulo":"","descricao":"","conteudo_sugerido":"","pontuacao_maxima":null,"obrigatorio":true,"ordem":1}

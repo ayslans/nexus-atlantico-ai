@@ -4,8 +4,9 @@ import { callGeminiWithRetry } from "../_shared/gemini.ts";
 
 async function callGemini(prompt: string, context: string, geminiKey: string) {
     const result = await callGeminiWithRetry(prompt, context, geminiKey, {
-        temperature: 0.4,
-        topP: 0.8,
+        temperature: 0.5,
+        topP: 0.9,
+        maxOutputTokens: 8192,
     });
     return result.content || '';
 }
@@ -32,20 +33,21 @@ serve(async (req) => {
       ${criteriosText.substring(0, 5000)} // Limite para evitar estouro de contexto básico
     `;
 
-        const systemPrompt = `Você é um Especialista Sênior em Captação de Recursos e Redação de Propostas para Editais. 
-    Sua tarefa é escrever uma SIMULAÇÃO DE PROPOSTA COMPLETA baseada na estrutura fornecida.
-    
-    ESTRUTURA DESEJADA:
+        const systemPrompt = `Você é um Especialista Sênior em Captação de Recursos e Redação de Propostas para Editais de Fomento Público e Privado. Sua tarefa é escrever uma SIMULAÇÃO DE PROPOSTA COMPLETA e persuasiva, baseada na estrutura e nos critérios fornecidos.
+
+    ESTRUTURA DESEJADA (siga esta ordem de seções):
     ${JSON.stringify(proposalModel.estrutura, null, 2)}
 
-    DIRETRIZES DE REDAÇÃO:
-    1. Utilize um tom extremamente profissional, executivo e refinado.
-    2. Seja persuasivo, focando em como a proposta atende aos critérios do edital.
-    3. NUNCA utilize emojis ou símbolos informais.
-    4. Escreva o conteúdo real que o proponente deveria utilizar, não apenas instruções.
-    5. Formate a saída em Markdown elegante, com títulos claros para cada seção da estrutura.
-    
-    A saída deve ser o texto final da proposta simulada.`;
+    DIRETRIZES OBRIGATÓRIAS DE REDAÇÃO:
+    1. Escreva o CONTEÚDO REAL de cada seção — não instruções sobre o que escrever, mas o texto final pronto para uso.
+    2. Tom executivo, profissional e persuasivo. NUNCA utilize emojis ou linguagem informal.
+    3. Cada seção deve demonstrar alinhamento explícito com os critérios de avaliação do edital.
+    4. Inclua dados, métricas e indicadores plíveis onde cabença (ex: estimativas de impacto, cronograma, equipe).
+    5. Seja persuasivo: antecipe as perguntas da banca avaliadora e responda-as no próprio texto.
+    6. Formate a saída em Markdown elegante: use ## para seções principais, ### para subseções, tabelas quando cabível.
+    7. A proposta deve soar como se fosse escrita por um proponente experiente e competitivo.
+
+    A saída deve ser o texto FINAL da proposta simulada, pronto para ser revisado e submetido.`;
 
         const fullProposal = await callGemini(systemPrompt, context, GEMINI_API_KEY);
 

@@ -1,34 +1,47 @@
-# Nexus AI
+# Tender Hunter AI
 
-## Project info
+**Análise inteligente de editais brasileiros com IA (Google Gemini 2.0 Flash)**
 
+Veja [PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md) para detalhes sobre a nova arquitetura monorepo (frontend, backend, smart).
 
-## How can I edit this code?
+## Início Rápido
 
-There are several ways of editing your application.
+Requisitos: Node.js, npm e [Supabase CLI](https://supabase.com/docs/guides/cli/getting-started)
 
-
-
-
-**Use your preferred IDE**
-
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+### Frontend
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
+cd frontend
+npm install
+npm run dev          # Abre em http://localhost:8080
+```
+
+### Backend (Supabase + Deno)
+
+```sh
+cd backend
+supabase start       # Inicia Supabase localmente
+supabase functions deploy  # Deploy das funções
+```
+
+### Setup Completo
+
+```sh
+# Clone o repositório
 git clone <YOUR_GIT_URL>
+cd tender-hunter-ai
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+# Configure variáveis de ambiente
+cp .env.example .env    # Edite com suas credenciais
 
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# Frontend
+cd frontend
+npm install
 npm run dev
+
+# Em outro terminal - Backend
+cd backend
+supabase start
 ```
 
 **Edit a file directly in GitHub**
