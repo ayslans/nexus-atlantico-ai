@@ -1,0 +1,336 @@
+// @ts-expect-error: remote Deno std import for runtime
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+import { callGeminiWithRetry } from "../_shared/gemini.ts";
+
+const CONSOLIDATED_PROMPT = `Você é um especialista sênior em propostas para editais de fomento público e privado, com experiência em FINEP, CNPq, BNDES e editais internacionais. Analise os critérios abaixo e retorne um único JSON completo e detalhado com 4 seções.
+
+CRITÉRIOS DO EDITAL:
+{criterios}
+
+DIRETRIZES:
+- Para "estrutura": inclua TODAS as seções obrigatórias e opcionais que uma proposta vencedora deve ter, com descrição detalhada de cada uma e conteúdo sugerido de alto valor.
+- Para "checklist": seja exaustivo — inclua documentos, conteúdos, formatos e prazos que o proponente deve verificar antes de submeter.
+- Para "criterios_avaliacao": extraia os pesos reais do edital e adicione uma dica estratégica acionável para cada critério.
+- Para "analise_estrategica": o resumo_executivo deve ter pelo menos 3 parágrafos contextualizando o edital, o perfil ideal do proponente e a estratégia recomendada. As dicas_estrategicas devem ser concretas e diferenciadas.
+
+RETORNE APENAS este JSON (válido e completo, sem markdown ao redor):
+{
+  "estrutura": [
+    {"id":"uuid","titulo":"","descricao":"","conteudo_sugerido":"","pontuacao_maxima":null,"obrigatorio":true,"ordem":1}
+  ],
+  "checklist": [
+    {"id":"uuid","item":"","categoria":"documento|conteudo|formato|prazo","obrigatorio":true}
+  ],
+  "criterios_avaliacao": [
+    {"criterio":"","peso":0,"dica":""}
+  ],
+  "analise_estrategica": {
+    "resumo_executivo":"",
+    "anexos_necessarios":[],
+    "requisitos_obrigatorios":[],
+    "dicas_estrategicas":[]
+  }
+}`;
+
+const ANALYSIS_PROMPTS = {
+  estrutura: `Você é um especialista em elaboração de propostas para editais de fomento. Analise os critérios do edital e extraia a ESTRUTURA COMPLETA que a proposta deve seguir.
+
+Para cada seção identificada, forneça:
+- Título da seção
+- Descrição do que deve conter
+- Se é obrigatória ou opcional
+- Pontuação máxima (se mencionada)
+- Conteúdo sugerido baseado nas melhores práticas
+
+IMPORTANTE:
+1. Retorne APENAS um JSON válido no formato abaixo.
+2. Utilize um tom extremamente profissional, refinado e técnico.
+3. NUNCA utilize emojis ou símbolos informais no conteúdo sugerido ou nas descrições.
+
+{
+  "estrutura": [
+    {
+      "id": "uuid-único",
+      "titulo": "Nome da Seção",
+      "descricao": "Descrição técnica e profissional",
+      "conteudo_sugerido": "Orientações formais e detalhadas",
+      "pontuacao_maxima": 20,
+      "obrigatorio": true,
+      "ordem": 1
+    }
+  ]
+}`,
+
+  checklist: `Você é um auditor de conformidade especializado em propostas de fomento. Analise os critérios e crie um CHECKLIST COMPLETO de todos os itens necessários para a submissão.
+
+Categorize cada item em: documento, conteudo, formato ou prazo.
+
+IMPORTANTE:
+1. Retorne APENAS um JSON válido no formato abaixo.
+2. Seja preciso, formal e profissional.
+3. Não utilize emojis no texto dos itens.
+
+{
+  "checklist": [
+    {
+      "id": "uuid-único",
+      "item": "Descrição formal do item",
+      "categoria": "documento|conteudo|formato|prazo",
+      "obrigatorio": true,
+      "verificado": false
+    }
+  ]
+}`,
+
+  criterios_avaliacao: `Você é um avaliador experiente de propostas de fomento. Identifique todos os CRITÉRIOS DE AVALIAÇÃO e seus pesos. Para cada critério, forneça uma diretriz estratégica formal.
+
+IMPORTANTE:
+1. Retorne APENAS um JSON válido no formato abaixo.
+2. Utilize linguagem polida e profissional.
+3. Não utilize emojis.
+
+{
+  "criterios_avaliacao": [
+    {
+      "criterio": "Nome do critério",
+      "peso": 25,
+      "dica": "Diretriz estratégica formal para o critério"
+    }
+  ]
+}`,
+
+  analise_estrategica: `Você é um consultor estratégico especialista em captação de recursos. Analise os critérios e forneça:
+1. Resumo executivo (objetivo e perfil ideal).
+2. Lista de anexos necessários.
+3. Requisitos eliminatórios críticos.
+4. Diretrizes de alto nível para sucesso.
+
+IMPORTANTE:
+1. Retorne APENAS um JSON válido no formato abaixo.
+2. Mantenha um tom executivo, sóbrio e refinado.
+3. PROIBIDO o uso de emojis.
+
+{
+  "resumo_executivo": "Texto formal e objetivo",
+  "anexos_necessarios": ["Item A", "Item B"],
+  "requisitos_obrigatorios": ["Requisito X", "Requisito Y"],
+  "dicas_estrategicas": ["Diretriz 1", "Diretriz 2"]
+}`
+};
+
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+function parseAIJsonResponse(text: string): unknown {
+  let jsonContent = text.trim();
+
+  if (jsonContent.startsWith('```')) {
+    const match = jsonContent.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+    if (match) {
+      jsonContent = match[1].trim();
+    }
+  }
+
+  const firstBrace = jsonContent.indexOf('{');
+  const lastBrace = jsonContent.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1) {
+    jsonContent = jsonContent.substring(firstBrace, lastBrace + 1);
+  }
+
+  try {
+    return JSON.parse(jsonContent);
+  } catch (parseError) {
+    console.error('JSON parse error:', parseError, 'Content:', jsonContent.substring(0, 500));
+    throw new Error('Falha ao parsear resposta da IA como JSON.');
+  }
+}
+
+async function callGemini(
+  systemPrompt: string,
+  userContent: string,
+  geminiKey: string,
+  maxRetries: number = 5
+): Promise<{ success: boolean; content: unknown }> {
+  const result = await callGeminiWithRetry(systemPrompt, userContent, geminiKey, { temperature: 0.4 }, maxRetries);
+  if (!result.success || !result.content) {
+    return { success: false, content: null };
+  }
+  try {
+    const parsed = parseAIJsonResponse(result.content);
+    return { success: true, content: parsed };
+  } catch (e) {
+    return { success: false, content: null };
+  }
+}
+
+interface ChecklistItem {
+  id: string;
+  item: string;
+  categoria: 'documento' | 'conteudo' | 'formato' | 'prazo';
+  obrigatorio: boolean;
+  verificado: boolean;
+}
+
+async function generateProposalModel(
+  criteriosText: string,
+  editalNome: string,
+  geminiKey: string
+): Promise<Record<string, unknown>> {
+  console.log(`Gerando modelo de proposta para: ${editalNome}`);
+
+  // Truncar criterios para evitar desperdício de tokens — 40k chars (~10k tokens) é mais que suficiente
+  const MAX_CRITERIOS_LENGTH = 40_000;
+  const truncatedCriterios = criteriosText.length > MAX_CRITERIOS_LENGTH
+    ? criteriosText.substring(0, MAX_CRITERIOS_LENGTH) + '\n\n[...CRITÉRIOS TRUNCADOS...]'
+    : criteriosText;
+
+  // Consolidar em uma única chamada ao Gemini
+  const consolidatedPrompt = CONSOLIDATED_PROMPT.replace('{criterios}', truncatedCriterios);
+  
+  const result = await callGemini(consolidatedPrompt, '', geminiKey);
+
+  if (!result.success || !result.content) {
+    throw new Error('Falha ao gerar análises consolidadas');
+  }
+
+  const data = result.content as Record<string, unknown>;
+  const estrutura = Array.isArray(data.estrutura) ? (data.estrutura as unknown[]) : [];
+  const checklist = Array.isArray(data.checklist) ? (data.checklist as unknown[]) : [];
+  const criteriosAvaliacao = Array.isArray(data.criterios_avaliacao) ? (data.criterios_avaliacao as unknown[]) : [];
+  const estrategia = (data.analise_estrategica as Record<string, unknown>) || {};
+
+  const normalizedEstrutura = estrutura.map((item: unknown, idx: number) => {
+    const s = item as Record<string, unknown>;
+    return {
+      id: typeof s.id === 'string' && s.id.length > 0 ? s.id : generateUUID(),
+      titulo: (s.titulo as string) || `Seção ${idx + 1}`,
+      descricao: (s.descricao as string) || '',
+      conteudo_sugerido: (s.conteudo_sugerido as string) || '',
+      pontuacao_maxima: typeof s.pontuacao_maxima === 'number' ? s.pontuacao_maxima : null,
+      obrigatorio: s.obrigatorio !== false,
+      ordem: typeof s.ordem === 'number' ? s.ordem : idx + 1,
+    };
+  });
+
+  const normalizedChecklist: ChecklistItem[] = checklist.map((item: unknown) => {
+    const c = item as Record<string, unknown>;
+    return {
+      id: typeof c.id === 'string' && c.id.length > 0 ? c.id : generateUUID(),
+      item: (c.item as string) || 'Item não definido',
+      categoria: (['documento', 'conteudo', 'formato', 'prazo'] as const).includes(c.categoria as ChecklistItem['categoria'])
+        ? (c.categoria as ChecklistItem['categoria'])
+        : 'conteudo' as const,
+      obrigatorio: c.obrigatorio !== false,
+      verificado: false,
+    };
+  });
+
+  if (!normalizedChecklist.some((item) => item.categoria === 'conteudo') && normalizedEstrutura.length > 0) {
+    normalizedEstrutura.forEach((section) => {
+      normalizedChecklist.push({
+        id: generateUUID(),
+        item: `Incluir seção "${section.titulo}" na proposta`,
+        categoria: 'conteudo',
+        obrigatorio: Boolean(section.obrigatorio),
+        verificado: false,
+      });
+    });
+  }
+
+  const anexos = Array.isArray(estrategia.anexos_necessarios)
+    ? (estrategia.anexos_necessarios as unknown[]).filter((item): item is string => typeof item === 'string')
+    : [];
+  const requisitos = Array.isArray(estrategia.requisitos_obrigatorios)
+    ? (estrategia.requisitos_obrigatorios as unknown[]).filter((item): item is string => typeof item === 'string')
+    : [];
+  const dicas = Array.isArray(estrategia.dicas_estrategicas)
+    ? (estrategia.dicas_estrategicas as unknown[]).filter((item): item is string => typeof item === 'string')
+    : [];
+
+  anexos.forEach((anexo: string) => {
+    normalizedChecklist.push({
+      id: generateUUID(),
+      item: `Anexar: ${anexo}`,
+      categoria: 'documento',
+      obrigatorio: true,
+      verificado: false,
+    });
+  });
+
+  return {
+    titulo: `Modelo de Proposta - ${editalNome}`,
+    resumo_executivo: typeof estrategia.resumo_executivo === 'string'
+      ? estrategia.resumo_executivo
+      : 'Análise do edital para construção de proposta competitiva.',
+    estrutura: normalizedEstrutura,
+    checklist: normalizedChecklist,
+    criterios_avaliacao: criteriosAvaliacao.map((item: unknown) => {
+      const c = item as Record<string, unknown>;
+      return {
+        criterio: (c.criterio as string) || 'Critério não especificado',
+        peso: typeof c.peso === 'number' ? c.peso : 0,
+        dica: (c.dica as string) || '',
+      };
+    }),
+    anexos_necessarios: anexos,
+    requisitos_obrigatorios: requisitos,
+    dicas_estrategicas: dicas,
+  };
+}
+
+serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  try {
+    const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY');
+    if (!GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY não está configurada.');
+    }
+
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Authorization required' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const body = await req.json().catch(() => null);
+    const criteriosText = body?.criteriosText;
+    const editalNome = body?.editalNome;
+
+    if (!criteriosText || typeof criteriosText !== 'string' || criteriosText.length < 50) {
+      return new Response(JSON.stringify({ error: 'Critérios insuficientes para gerar modelo de proposta' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (!editalNome || typeof editalNome !== 'string') {
+      return new Response(JSON.stringify({ error: 'Nome do edital inválido' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    const proposalModel = await generateProposalModel(criteriosText, editalNome, GEMINI_API_KEY);
+
+    return new Response(JSON.stringify({ success: true, proposalModel }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  } catch (error) {
+    console.error('Erro na função generate-proposal-model:', error);
+    return new Response(JSON.stringify({ error: error instanceof Error ? error.message : 'Erro desconhecido' }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+});
