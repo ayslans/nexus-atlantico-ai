@@ -10,8 +10,7 @@ echo "==============================================================="
 git remote add nexus https://bitbucket.org/institutoatlantico/NEXUS.git 2>/dev/null
 git remote set-url nexus https://bitbucket.org/institutoatlantico/NEXUS.git
 
-# Como visto em logs anteriores, desativamos a verificação SSL localmente
-git config http.sslVerify false
+
 
 # Adiciona todas as modificações atuais, caso haja alguma, e commita (tratando erro se estiver limpo)
 git add .
@@ -38,6 +37,9 @@ while [ $SUCCESS -eq 0 ]; do
     echo ""
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] -> TENTATIVA $ATTEMPT: Enviando dados para o Bitbucket..."
     
+    # Garante que a verificação SSL/TLS seja desativada localmente antes de cada push
+    git config --local http.sslVerify false
+
     # Executa o push para a branch main usando a URL com token
     git push "$REPO_URL" main
     
