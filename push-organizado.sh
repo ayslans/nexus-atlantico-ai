@@ -53,6 +53,13 @@ persistent_push() {
     while [ $SUCCESS -eq 0 ]; do
         echo "\n[$(date +'%Y-%m-%d %H:%M:%S')] -> TENTATIVA $ATTEMPT: Enviando $description..."
         
+        # Desabilita explicitamente as variáveis de ambiente do VS Code Git para evitar interferências
+        unset GIT_ASKPASS
+        unset VSCODE_GIT_ASKPASS_NODE
+        unset VSCODE_GIT_ASKPASS_EXTRA_ARGS
+        unset VSCODE_GIT_ASKPASS_MAIN
+        unset VSCODE_GIT_IPC_HANDLE
+
         # Garante a desativação SSL e helper de credenciais para esta tentativa
         git config --local http.sslVerify false
         git config --local credential.helper ""
