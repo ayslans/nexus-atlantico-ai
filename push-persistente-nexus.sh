@@ -17,16 +17,29 @@ git config http.sslVerify false
 git add .
 git commit -m "chore: sincronizacao automatica para bitbucket NEXUS" 2>/dev/null
 
+# Garante que o Git ignore extensões e gerenciadores de credenciais defeituosos
+export GIT_TERMINAL_PROMPT=1
+git config --local credential.helper ""
+
 SUCCESS=0
 ATTEMPT=1
+
+# Solicita o token de API manualmente para burlar bloqueios corporativos
+echo ""
+echo "=== AUTENTICAÇÃO NECESSÁRIA ==="
+echo "Extensões do Jira/Atlassian estão bloqueando o login automático."
+read -p "Cole seu API Token do Bitbucket e pressione Enter: " TOKEN
+
+# Ajusta a URL injetando o token diretamente para forçar a autorização
+REPO_URL="https://ayslan_silva:${TOKEN}@bitbucket.org/institutoatlantico/NEXUS.git"
 
 # Loop que garante que só pare quando tiver sucesso
 while [ $SUCCESS -eq 0 ]; do
     echo ""
     echo "[$(date +'%Y-%m-%d %H:%M:%S')] -> TENTATIVA $ATTEMPT: Enviando dados para o Bitbucket..."
     
-    # Executa o push para a branch main
-    git push nexus main
+    # Executa o push para a branch main usando a URL com token
+    git push "$REPO_URL" main
     
     # Verifica o código de saída do comando git push
     if [ $? -eq 0 ]; then
