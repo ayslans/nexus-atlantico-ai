@@ -43,16 +43,16 @@ export function AuthForm() {
   };
 
   return (
-    <div className="min-h-screen gradient-hero flex items-center justify-center p-4">
-      <Card className="w-full max-w-md shadow-elevated animate-fade-in">
-        <CardHeader className="text-center space-y-4">
-          <div className="mx-auto w-20 h-20 flex items-center justify-center">
-            <img src={logo} alt="Nexus AI Logo" className="w-full h-full" />
+    <div className="min-h-screen bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-primary/10 via-background to-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md shadow-2xl border-border/50 animate-fade-in bg-card/80 backdrop-blur-sm">
+        <CardHeader className="text-center space-y-4 pb-8">
+          <div className="mx-auto w-16 h-16 flex items-center justify-center bg-primary/10 rounded-2xl border border-primary/20 shadow-inner">
+            <img src={logo} alt="Nexus AI Logo" className="w-10 h-10" />
           </div>
-          <CardTitle className="text-2xl font-semibold">
-            Bem-vindo ao Nexus AI
+          <CardTitle className="text-3xl font-bold tracking-tight text-transparent bg-clip-text bg-gradient-to-br from-foreground to-foreground/70">
+            Nexus AI
           </CardTitle>
-          <CardDescription>
+          <CardDescription className="text-base">
             {isLogin ? 'Entre com suas credenciais para continuar' : 'Crie uma conta para começar a analisar editais'}
           </CardDescription>
         </CardHeader>
@@ -81,16 +81,16 @@ export function AuthForm() {
                 minLength={6}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            <Button type="submit" className="w-full h-12 text-base font-medium shadow-lg shadow-primary/25 transition-all hover:scale-[1.02]" disabled={loading}>
+              {loading && <Loader2 className="mr-2 h-5 w-5 animate-spin" />}
               {isLogin ? 'Entrar' : 'Criar Conta'}
             </Button>
           </form>
-          <div className="mt-4 text-center">
+          <div className="mt-6 text-center">
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-primary transition-colors"
+              className="text-sm font-medium text-muted-foreground hover:text-primary transition-colors"
             >
               {isLogin ? 'Não tem conta? Criar agora' : 'Já tem conta? Entrar'}
             </button>
