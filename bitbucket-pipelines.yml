@@ -1,0 +1,35 @@
+image: node:20
+
+pipelines:
+  default:
+    - step:
+        name: Build and Check Frontend
+        caches:
+          - node
+        script:
+          - cd frontend
+          - npm ci
+          - npx tsc -b
+          - export VITE_SUPABASE_URL="https://mock.supabase.co"
+          - export VITE_SUPABASE_PUBLISHABLE_KEY="mock_key"
+          - npm run build
+        artifacts:
+          - frontend/dist/**
+
+  branches:
+    main:
+      - step:
+          name: Production Build Validation
+          caches:
+            - node
+          script:
+            - cd frontend
+            - npm ci
+            - npx tsc -b
+            - export VITE_SUPABASE_URL="https://mock.supabase.co"
+            - export VITE_SUPABASE_PUBLISHABLE_KEY="mock_key"
+            - npm run build
+            # Add deployment commands here if using custom hosting, 
+            # e.g., Vercel CLI: npx vercel --prod --token $VERCEL_TOKEN
+          artifacts:
+            - frontend/dist/**
