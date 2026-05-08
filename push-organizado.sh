@@ -6,8 +6,7 @@ echo "  INICIANDO PUSH ORGANIZADO PARA BITBUCKET (MULTIREPO)         "
 echo "  Tamanho estimado do projeto total: 1.39 GB                   "
 echo "==============================================================="
 
-# Carrega variáveis do arquivo .env (incluindo o BITBUCKET_API_TOKEN)
-. "$(dirname "$0")/.env"
+# Carrega variáveis do arquivo .env (não usado diretamente para SSH)
 
 # Desativa a verificação SSL/TLS localmente para contornar erros de certificado
 git config --local http.sslVerify false
@@ -22,10 +21,10 @@ FRONTEND_REMOTE="bitbucket_m5_frontend"
 SMART_REMOTE="bitbucket_m5_smart"
 ROOT_REMOTE="bitbucket_nexus_root"
 
-BACKEND_URL="https://ayslan_silva:${BITBUCKET_API_TOKEN}@bitbucket.org/institutoatlantico/m5_backend.git"
-FRONTEND_URL="https://ayslan_silva:${BITBUCKET_API_TOKEN}@bitbucket.org/institutoatlantico/m5_frontend.git"
-SMART_URL="https://ayslan_silva:${BITBUCKET_API_TOKEN}@bitbucket.org/institutoatlantico/m5_smart.git"
-ROOT_URL="https://ayslan_silva:${BITBUCKET_API_TOKEN}@bitbucket.org/institutoatlantico/NEX/NEXUS.git"
+BACKEND_URL="git@bitbucket.org:institutoatlantico/m5_backend.git"
+FRONTEND_URL="git@bitbucket.org:institutoatlantico/m5_frontend.git"
+SMART_URL="git@bitbucket.org:institutoatlantico/m5_smart.git"
+ROOT_URL="git@bitbucket.org:institutoatlantico/NEX/NEXUS.git"
 
 # Adicionar/Atualizar remotes
 git remote add $BACKEND_REMOTE $BACKEND_URL 2>/dev/null || git remote set-url $BACKEND_REMOTE $BACKEND_URL
