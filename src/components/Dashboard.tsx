@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { motion } from 'framer-motion';
 import { FileSearch, LogOut, Plus, FileText, Search, GitCompareArrows } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { UploadZone } from './UploadZone';
