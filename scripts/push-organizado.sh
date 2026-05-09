@@ -7,6 +7,7 @@ echo "  Tamanho estimado do projeto total: 1.39 GB                   "
 echo "==============================================================="
 
 # Carrega variáveis do arquivo .env (não usado diretamente para SSH)
+. "$(dirname "$0")/../config/.env"
 
 # Desativa a verificação SSL/TLS localmente para contornar erros de certificado
 git config --local http.sslVerify false
@@ -21,10 +22,10 @@ FRONTEND_REMOTE="bitbucket_m5_frontend"
 SMART_REMOTE="bitbucket_m5_smart"
 ROOT_REMOTE="bitbucket_nexus_root"
 
-BACKEND_URL="git@bitbucket.org:institutoatlantico/m5_backend.git"
-FRONTEND_URL="git@bitbucket.org:institutoatlantico/m5_frontend.git"
-SMART_URL="git@bitbucket.org:institutoatlantico/m5_smart.git"
-ROOT_URL="git@bitbucket.org:institutoatlantico/NEX/NEXUS.git"
+BACKEND_URL="git@bitbucket.org:nexusaiprov/m5_backend.git"
+FRONTEND_URL="git@bitbucket.org:nexusaiprov/m5_frontend.git"
+SMART_URL="git@bitbucket.org:nexusaiprov/m5_smart.git"
+ROOT_URL="git@bitbucket.org:nexusaiprov/nexus.git"
 
 # Adicionar/Atualizar remotes
 git remote add $BACKEND_REMOTE $BACKEND_URL 2>/dev/null || git remote set-url $BACKEND_REMOTE $BACKEND_URL
@@ -68,14 +69,22 @@ persistent_push() {
             # Usando rsync para criar um 'tree' temporário sem as subpastas e fazer o push
             echo "Copiando arquivos da raiz para push temporário..."
             TEMP_DIR="$(mktemp -d)"
-            rsync -av --exclude 'm5_backend/' --exclude 'm5_frontend/' --exclude 'm5_smart/' --exclude '.git/' ./ "$TEMP_DIR"/
-            (cd "$TEMP_DIR" && git init && git add . && git commit -m "Root files sync" 2>/dev/null && git remote add origin "$url" && git push -f origin main)
+            # Usa cp -a para copiar tudo, depois remove as pastas que não queremos no root repo
+            cp -a . "$TEMP_DIR/"
+            rm -rf "$TEMP_DIR/m5_backend" "$TEMP_DIR/m5_frontend" "$TEMP_DIR/m5_smart" "$TEMP_DIR/.git" "$TEMP_DIR/.github" "$TEMP_DIR/.vscode" "$TEMP_DIR/node_modules" "$TEMP_DIR/.sixth"
+            (cd "$TEMP_DIR" && git init && git branch -m main && git add . && git commit -m "Root files sync" 2>/dev/null && git remote add origin "$url" && git push -f origin main)
             RM_RESULT=$?
             rm -rf "$TEMP_DIR"
         else
-            # Push para subpastas usando git subtree
-            git subtree push --prefix="$prefix" "$remote" main
+            # Push para subpastas usando git subtree. Note que o subtree padrão não aceita a flag -f facilmente
+            # Para forçar, fazemos um push forçado da branch criada pelo subtree
+            # Usando uma abordagem mais limpa com subtree push (que geralmente falha ao tentar forçar),
+            # criamos uma branch temporária para o prefixo, forçamos o push e a deletamos.
+            TEMP_BRANCH="temp-subtree-$prefix"
+            git subtree split --prefix="$prefix" -b "$TEMP_BRANCH"
+            git push -f "$remote" "$TEMP_BRANCH":main
             RM_RESULT=$?
+            git branch -D "$TEMP_BRANCH"
         fi
         
         if [ $RM_RESULT -eq 0 ]; then
